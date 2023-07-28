@@ -46,6 +46,18 @@ export class Workflow<T> {
         }
     }
 
+    protected resolveStep(stepId: string) {
+        return this.mappedSteps[stepId]
+    }
+
+    public addStep<I, D>(step: Step<T, I, D>) {
+        if (this.mappedSteps[step.id]) {
+            throw new Error(`Duplicate step id "${step.id}"`)
+        }
+        this.steps.push(step)
+        this.mappedSteps[step.id] = step
+    }
+
     /**
      * Validate that schema refers only to existing step IDs
      * @param schemaId 
@@ -142,7 +154,7 @@ export class Workflow<T> {
                 if (typeof item === 'string' || typeof item.id === 'string') {
                     const stepId = typeof item === 'string' ? item : item.id
                     result.stepId = stepId
-                    const step = this.mappedSteps[stepId]
+                    const step = this.resolveStep(stepId)
                     if (!step) {
                         throw new Error(`Step "${stepId}" not found.`)
                     }
