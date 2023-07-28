@@ -65,9 +65,9 @@ export class Workflow<T> {
      */
     protected validateSchema(schemaId: string, item: TWorkflowItem<T>) {
         if (typeof item === 'string') {
-            if (!this.mappedSteps[item])  error(item)
+            if (!this.resolveStep(item))  error(item)
         } else if (typeof item.id === 'string') {
-            if (!this.mappedSteps[item.id]) error(item.id)
+            if (!this.resolveStep(item.id)) error(item.id)
         } else {
             for (const step of item.steps) {
                 this.validateSchema(schemaId, step)
