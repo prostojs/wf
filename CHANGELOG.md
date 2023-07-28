@@ -1,3 +1,12 @@
+## [0.0.3](https://github.com/prostojs/wf/compare/v0.0.2...v0.0.3) (2023-07-28)
+
+
+### Bug Fixes
+
+* use resolveStep in validateSchema ([4382b6a](https://github.com/prostojs/wf/commit/4382b6a66f929650232ae0ff1f87e7aa1c8f34b6))
+
+
+
 ## [0.0.2](https://github.com/prostojs/wf/compare/v0.0.1...v0.0.2) (2023-07-28)
 
 
