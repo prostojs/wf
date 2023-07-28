@@ -1,6 +1,6 @@
 {
   "name": "@prostojs/wf",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Generic workflow framework",
   "main": "index.js",
   "module": "dist/wf.esm-bundler.js",
@@ -51,8 +51,7 @@
       "cjs"
     ]
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "gitHooks": {
     "commit-msg": "node scripts/verifyCommit.js"
   },
