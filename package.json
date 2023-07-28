@@ -1,6 +1,6 @@
 {
   "name": "@prostojs/wf",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Generic workflow framework",
   "main": "index.js",
   "module": "dist/wf.esm-bundler.js",
