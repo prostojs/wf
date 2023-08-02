@@ -1,4 +1,24 @@
 import { Workflow, createStep } from './'
+import { TWorkflowSpy } from './spy'
+
+let spyLog: string[] = []
+
+const spy: TWorkflowSpy<{ result: number }, unknown> = (event, val, result, ms) => {
+    let output = ''
+    if (typeof val === 'object') {
+        const condVal = val as { fn: string, result: boolean }
+        if (condVal.fn) {
+            output = JSON.stringify(condVal.fn) + ' -> ' + String(condVal.result)
+        }
+    } else {
+        output = JSON.stringify(val)
+    }
+    let _ms = ''
+    if (typeof ms === 'number') {
+        _ms = `\t~${ ms }ms`
+    }
+    spyLog.push(`${ '  '.repeat(result.state.indexes.length) }${event}: ${output} (result = ${ result.state.context?.result })${ _ms }`)
+}
 
 const steps = [
     createStep<{ result: number }>('add', {
@@ -18,6 +38,7 @@ const steps = [
     }),
 ]
 const flow = new Workflow<{ result: number }>(steps)
+flow.attachSpy(spy)
 flow.register('add-mul-div', [
     'add', 'mul', 'div',
 ])
@@ -66,6 +87,9 @@ flow.register('loop-continue', [
     { id: 'mul', input: 10 },
 ])
 describe('wf', () => {
+    beforeEach(() => {
+        spyLog = []
+    })
     it('must run wf with input request', async () => {
         const result = await flow.start('add-mul-div', { result: 1 })
         expect(result.finished).toBeFalsy()
@@ -95,12 +119,39 @@ describe('wf', () => {
                 }
             }
         }
+        expect(spyLog).toMatchInlineSnapshot(`
+Array [
+  "  workflow-start: \\"add-mul-div\\" (result = 1)",
+  "  step: \\"add\\" (result = 1)	~0ms",
+  "  workflow-interrupt: \\"add-mul-div\\" (result = 1)",
+  "  resume-start: \\"add-mul-div\\" (result = 1)",
+  "  step: \\"add\\" (result = 6)	~0ms",
+  "  step: \\"mul\\" (result = 6)	~0ms",
+  "  resume-interrupt: \\"add-mul-div\\" (result = 6)",
+  "  resume-start: \\"add-mul-div\\" (result = 6)",
+  "  step: \\"mul\\" (result = 12)	~0ms",
+  "  step: \\"div\\" (result = 12)	~0ms",
+  "  resume-interrupt: \\"add-mul-div\\" (result = 12)",
+  "  resume-start: \\"add-mul-div\\" (result = 12)",
+  "  step: \\"div\\" (result = 2)	~0ms",
+  "  resume-end: \\"add-mul-div\\" (result = 2)",
+]
+`)
     })
     it('must run wf with hardcoded inputs', async () => {
         const result = await flow.start('add-mul-div-with-inputs', { result: 1 })
         expect(result.finished).toBe(true)
         expect(result.state.context.result).toBe(2)
         expect(result.inputRequired).not.toBeDefined()
+        expect(spyLog).toMatchInlineSnapshot(`
+Array [
+  "  workflow-start: \\"add-mul-div-with-inputs\\" (result = 1)",
+  "  step: \\"add\\" (result = 6)	~1ms",
+  "  step: \\"mul\\" (result = 12)	~0ms",
+  "  step: \\"div\\" (result = 2)	~0ms",
+  "  workflow-end: \\"add-mul-div-with-inputs\\" (result = 2)",
+]
+`)
     })
     it('must run wf with conditions', async () => {
         const result = await flow.start('conditional', { result: 1 })
@@ -127,6 +178,57 @@ describe('wf', () => {
                 expect(result5.inputRequired).not.toBeDefined()
             }
         }
+        expect(spyLog).toMatchInlineSnapshot(`
+Array [
+  "  workflow-start: \\"conditional\\" (result = 1)",
+  "  step: \\"add\\" (result = 6)	~0ms",
+  "  eval-condition-fn: \\"result < 0\\" -> false (result = 6)	~0ms",
+  "  eval-condition-fn: \\"result > 10 && result <=50\\" -> false (result = 6)	~0ms",
+  "  eval-condition-fn: undefined -> false (result = 6)	~0ms",
+  "  step: \\"mul\\" (result = 6)	~0ms",
+  "  workflow-end: \\"conditional\\" (result = 6)",
+  "  workflow-start: \\"conditional\\" (result = 6)",
+  "  step: \\"add\\" (result = 11)	~0ms",
+  "  eval-condition-fn: \\"result < 0\\" -> false (result = 11)	~0ms",
+  "  eval-condition-fn: \\"result > 10 && result <=50\\" -> true (result = 11)	~0ms",
+  "    subflow-start: \\"\\" (result = 11)",
+  "    step: \\"add\\" (result = 1)	~0ms",
+  "    step: \\"mul\\" (result = 2)	~0ms",
+  "    subflow-end: \\"\\" (result = 2)",
+  "  eval-condition-fn: undefined -> false (result = 2)	~0ms",
+  "  step: \\"mul\\" (result = 2)	~0ms",
+  "  workflow-end: \\"conditional\\" (result = 2)",
+  "  workflow-start: \\"conditional\\" (result = 46)",
+  "  step: \\"add\\" (result = 51)	~0ms",
+  "  eval-condition-fn: \\"result < 0\\" -> false (result = 51)	~0ms",
+  "  eval-condition-fn: \\"result > 10 && result <=50\\" -> false (result = 51)	~0ms",
+  "  eval-condition-fn: undefined -> true (result = 51)	~0ms",
+  "    subflow-start: \\"\\" (result = 51)",
+  "    step: \\"add\\" (result = 26)	~0ms",
+  "    step: \\"div\\" (result = 6.5)	~0ms",
+  "      subflow-start: \\"\\" (result = 6.5)",
+  "      step: \\"add\\" (result = 6.5)	~0ms",
+  "      subflow-interrupt: \\"\\" (result = 6.5)",
+  "      subflow-interrupt: \\"\\" (result = 6.5)",
+  "      workflow-interrupt: \\"conditional\\" (result = 6.5)",
+  "      resume-start: \\"conditional\\" (result = 6.5)",
+  "      subflow-start: \\"\\" (result = 6.5)",
+  "      subflow-start: \\"\\" (result = 6.5)",
+  "      step: \\"add\\" (result = 8)	~1ms",
+  "      step: \\"add\\" (result = 8)	~0ms",
+  "      subflow-interrupt: \\"\\" (result = 8)",
+  "      subflow-interrupt: \\"\\" (result = 8)",
+  "      resume-interrupt: \\"conditional\\" (result = 8)",
+  "      resume-start: \\"conditional\\" (result = 8)",
+  "      subflow-start: \\"\\" (result = 8)",
+  "      subflow-start: \\"\\" (result = 8)",
+  "      step: \\"add\\" (result = 10)	~0ms",
+  "      subflow-end: \\"\\" (result = 10)",
+  "    subflow-end: \\"\\" (result = 10)",
+  "  step: \\"mul\\" (result = 10)	~0ms",
+  "  resume-end: \\"conditional\\" (result = 10)",
+]
+`)
     })
 
     it('must run wf with retriable error', async () => {
@@ -141,15 +243,168 @@ describe('wf', () => {
             expect(result2.finished).toBe(true)
             expect(result2.state.context.result).toBe(1)
         }
+        expect(spyLog).toMatchInlineSnapshot(`
+Array [
+  "  workflow-start: \\"conditional\\" (result = -10)",
+  "  step: \\"add\\" (result = -5)	~0ms",
+  "  eval-condition-fn: \\"result < 0\\" -> true (result = -5)	~0ms",
+  "    subflow-start: \\"\\" (result = -5)",
+  "    step: \\"error\\" (result = -5)	~0ms",
+  "    subflow-interrupt: \\"\\" (result = -5)",
+  "    workflow-interrupt: \\"conditional\\" (result = -5)",
+  "    resume-start: \\"conditional\\" (result = 1)",
+  "    subflow-start: \\"\\" (result = 1)",
+  "    step: \\"error\\" (result = 1)	~0ms",
+  "    subflow-end: \\"\\" (result = 1)",
+  "  eval-condition-fn: \\"result > 10 && result <=50\\" -> false (result = 1)	~0ms",
+  "  eval-condition-fn: undefined -> false (result = 1)	~0ms",
+  "  step: \\"mul\\" (result = 1)	~0ms",
+  "  resume-end: \\"conditional\\" (result = 1)",
+]
+`)
     })
     it('must run wf with loops', async () => {
         const result = await flow.start('loop', { result: 0 })
         expect(result.finished).toBe(true)
         expect(result.state.context.result).toBe(100)
+        expect(spyLog).toMatchInlineSnapshot(`
+Array [
+  "  workflow-start: \\"loop\\" (result = 0)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 0)	~1ms",
+  "    subflow-start: \\"\\" (result = 0)",
+  "    step: \\"add\\" (result = 1)	~0ms",
+  "    subflow-end: \\"\\" (result = 1)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 1)	~0ms",
+  "    subflow-start: \\"\\" (result = 1)",
+  "    step: \\"add\\" (result = 2)	~0ms",
+  "    subflow-end: \\"\\" (result = 2)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 2)	~0ms",
+  "    subflow-start: \\"\\" (result = 2)",
+  "    step: \\"add\\" (result = 3)	~0ms",
+  "    subflow-end: \\"\\" (result = 3)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 3)	~0ms",
+  "    subflow-start: \\"\\" (result = 3)",
+  "    step: \\"add\\" (result = 4)	~0ms",
+  "    subflow-end: \\"\\" (result = 4)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 4)	~0ms",
+  "    subflow-start: \\"\\" (result = 4)",
+  "    step: \\"add\\" (result = 5)	~0ms",
+  "    subflow-end: \\"\\" (result = 5)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 5)	~0ms",
+  "    subflow-start: \\"\\" (result = 5)",
+  "    step: \\"add\\" (result = 6)	~0ms",
+  "    subflow-end: \\"\\" (result = 6)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 6)	~0ms",
+  "    subflow-start: \\"\\" (result = 6)",
+  "    step: \\"add\\" (result = 7)	~0ms",
+  "    subflow-end: \\"\\" (result = 7)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 7)	~0ms",
+  "    subflow-start: \\"\\" (result = 7)",
+  "    step: \\"add\\" (result = 8)	~0ms",
+  "    subflow-end: \\"\\" (result = 8)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 8)	~0ms",
+  "    subflow-start: \\"\\" (result = 8)",
+  "    step: \\"add\\" (result = 9)	~0ms",
+  "    subflow-end: \\"\\" (result = 9)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 9)	~0ms",
+  "    subflow-start: \\"\\" (result = 9)",
+  "    step: \\"add\\" (result = 10)	~0ms",
+  "    subflow-end: \\"\\" (result = 10)",
+  "  eval-while-cond: \\"result < 10\\" -> false (result = 10)	~0ms",
+  "  step: \\"mul\\" (result = 100)	~0ms",
+  "  workflow-end: \\"loop\\" (result = 100)",
+]
+`)
+    })
+    it('must run wf with loops and break', async () => {
+        const result = await flow.start('loop-break', { result: 0 })
+        expect(result.finished).toBe(true)
+        expect(result.state.context.result).toBe(60)
+        expect(spyLog).toMatchInlineSnapshot(`
+Array [
+  "  workflow-start: \\"loop-break\\" (result = 0)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 0)	~0ms",
+  "    subflow-start: \\"\\" (result = 0)",
+  "    step: \\"add\\" (result = 1)	~0ms",
+  "    eval-break-fn: \\"result > 5\\" -> false (result = 1)	~0ms",
+  "    subflow-end: \\"\\" (result = 1)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 1)	~0ms",
+  "    subflow-start: \\"\\" (result = 1)",
+  "    step: \\"add\\" (result = 2)	~0ms",
+  "    eval-break-fn: \\"result > 5\\" -> false (result = 2)	~0ms",
+  "    subflow-end: \\"\\" (result = 2)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 2)	~0ms",
+  "    subflow-start: \\"\\" (result = 2)",
+  "    step: \\"add\\" (result = 3)	~0ms",
+  "    eval-break-fn: \\"result > 5\\" -> false (result = 3)	~0ms",
+  "    subflow-end: \\"\\" (result = 3)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 3)	~0ms",
+  "    subflow-start: \\"\\" (result = 3)",
+  "    step: \\"add\\" (result = 4)	~0ms",
+  "    eval-break-fn: \\"result > 5\\" -> false (result = 4)	~0ms",
+  "    subflow-end: \\"\\" (result = 4)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 4)	~0ms",
+  "    subflow-start: \\"\\" (result = 4)",
+  "    step: \\"add\\" (result = 5)	~0ms",
+  "    eval-break-fn: \\"result > 5\\" -> false (result = 5)	~0ms",
+  "    subflow-end: \\"\\" (result = 5)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 5)	~0ms",
+  "    subflow-start: \\"\\" (result = 5)",
+  "    step: \\"add\\" (result = 6)	~0ms",
+  "    eval-break-fn: \\"result > 5\\" -> true (result = 6)	~0ms",
+  "    subflow-end: \\"\\" (result = 6)",
+  "  step: \\"mul\\" (result = 60)	~0ms",
+  "  workflow-end: \\"loop-break\\" (result = 60)",
+]
+`)
     })
     it('must run wf with loops and continue', async () => {
         const result = await flow.start('loop-continue', { result: 0 })
         expect(result.finished).toBe(true)
         expect(result.state.context.result).toBe(100)
+        expect(spyLog).toMatchInlineSnapshot(`
+Array [
+  "  workflow-start: \\"loop-continue\\" (result = 0)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 0)	~0ms",
+  "    subflow-start: \\"\\" (result = 0)",
+  "    step: \\"add\\" (result = 1)	~0ms",
+  "    eval-continue-fn: \\"result > 5\\" -> false (result = 1)	~0ms",
+  "    step: \\"mul\\" (result = 2)	~0ms",
+  "    subflow-end: \\"\\" (result = 2)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 2)	~0ms",
+  "    subflow-start: \\"\\" (result = 2)",
+  "    step: \\"add\\" (result = 3)	~0ms",
+  "    eval-continue-fn: \\"result > 5\\" -> false (result = 3)	~0ms",
+  "    step: \\"mul\\" (result = 6)	~0ms",
+  "    subflow-end: \\"\\" (result = 6)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 6)	~0ms",
+  "    subflow-start: \\"\\" (result = 6)",
+  "    step: \\"add\\" (result = 7)	~0ms",
+  "    eval-continue-fn: \\"result > 5\\" -> true (result = 7)	~0ms",
+  "    subflow-end: \\"\\" (result = 7)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 7)	~0ms",
+  "    subflow-start: \\"\\" (result = 7)",
+  "    step: \\"add\\" (result = 8)	~0ms",
+  "    eval-continue-fn: \\"result > 5\\" -> true (result = 8)	~0ms",
+  "    subflow-end: \\"\\" (result = 8)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 8)	~0ms",
+  "    subflow-start: \\"\\" (result = 8)",
+  "    step: \\"add\\" (result = 9)	~0ms",
+  "    eval-continue-fn: \\"result > 5\\" -> true (result = 9)	~0ms",
+  "    subflow-end: \\"\\" (result = 9)",
+  "  eval-while-cond: \\"result < 10\\" -> true (result = 9)	~0ms",
+  "    subflow-start: \\"\\" (result = 9)",
+  "    step: \\"add\\" (result = 10)	~0ms",
+  "    eval-continue-fn: \\"result > 5\\" -> true (result = 10)	~0ms",
+  "    subflow-end: \\"\\" (result = 10)",
+  "  eval-while-cond: \\"result < 10\\" -> false (result = 10)	~0ms",
+  "  step: \\"mul\\" (result = 100)	~0ms",
+  "  workflow-end: \\"loop-continue\\" (result = 100)",
+]
+`)
+    })
+
+    afterEach(() => {
+        console.log(spyLog.join('\n'))
     })
 })
