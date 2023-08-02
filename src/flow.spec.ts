@@ -44,6 +44,27 @@ flow.register('conditional', [
     },
     { id: 'mul', input: 1 },
 ])
+flow.register('loop', [
+    {
+        while: 'result < 10',
+        steps: [{ id: 'add', input: 1 }],
+    },
+    { id: 'mul', input: 10 },
+])
+flow.register('loop-break', [
+    {
+        while: 'result < 10',
+        steps: [{ id: 'add', input: 1 }, { break: 'result > 5' }],
+    },
+    { id: 'mul', input: 10 },
+])
+flow.register('loop-continue', [
+    {
+        while: 'result < 10',
+        steps: [{ id: 'add', input: 1 }, { continue: 'result > 5' }, { id: 'mul', input: 2 }],
+    },
+    { id: 'mul', input: 10 },
+])
 describe('wf', () => {
     it('must run wf with input request', async () => {
         const result = await flow.start('add-mul-div', { result: 1 })
@@ -120,5 +141,15 @@ describe('wf', () => {
             expect(result2.finished).toBe(true)
             expect(result2.state.context.result).toBe(1)
         }
+    })
+    it('must run wf with loops', async () => {
+        const result = await flow.start('loop', { result: 0 })
+        expect(result.finished).toBe(true)
+        expect(result.state.context.result).toBe(100)
+    })
+    it('must run wf with loops and continue', async () => {
+        const result = await flow.start('loop-continue', { result: 0 })
+        expect(result.finished).toBe(true)
+        expect(result.state.context.result).toBe(100)
     })
 })

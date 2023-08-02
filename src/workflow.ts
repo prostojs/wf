@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { TFlowOutput, TWorkflowItem, TWorkflowSchema, TWorkflowStepConditionFn, StepRetriableError } from './types'
+import { TFlowOutput, TWorkflowItem, TWorkflowSchema, TWorkflowStepConditionFn, StepRetriableError, TSubWorkflowSchemaObj, TWorkflowStepSchemaObj, TWorkflowControl } from './types'
 import { Step } from './step'
 import { generateFn } from './utils/generate-fn'
 
@@ -35,7 +35,7 @@ export class Workflow<T> {
 
     protected schemas: Record<string, TWorkflowSchema<T>> = {}
 
-    protected conditions: Record<symbol, TWorkflowStepConditionFn<T>> = {}
+    protected fns: Record<symbol, TWorkflowStepConditionFn<T>> = {}
 
     constructor(protected steps: Step<T, any, any>[]) {
         for (const step of steps) {
@@ -64,12 +64,11 @@ export class Workflow<T> {
      * @param item 
      */
     protected validateSchema(schemaId: string, item: TWorkflowItem<T>) {
-        if (typeof item === 'string') {
-            if (!this.resolveStep(item))  error(item)
-        } else if (typeof item.id === 'string') {
-            if (!this.resolveStep(item.id)) error(item.id)
-        } else {
-            for (const step of item.steps) {
+        const { stepId, steps } = this.normalizeWorkflowItem(item)
+        if (typeof stepId === 'string') {
+            if (!this.resolveStep(stepId)) error(stepId)
+        } else if (steps) {
+            for (const step of steps) {
                 this.validateSchema(schemaId, step)
             }
         }
@@ -114,6 +113,18 @@ export class Workflow<T> {
         })
     }
 
+    protected async callConditionFn(fn: string | TWorkflowStepConditionFn<T>, context: T): Promise<boolean> {
+        if (typeof fn === 'string') {
+            const symbol = Symbol.for(fn)
+            if (!this.fns[symbol]) {
+                this.fns[symbol] = generateFn<Promise<boolean>>(fn) as TWorkflowStepConditionFn<T>
+            }
+            return (await this.fns[symbol](context))
+        } else {
+            return (await fn(context))
+        }
+    }
+
     protected async loopInto<I>(opts: {
         schemaId: string
         schema: TWorkflowSchema<T>
@@ -138,28 +149,31 @@ export class Workflow<T> {
         try {
             for (let i = startIndex; i < schema.length; i++) {
                 indexes[level] = i
-                const item = schema[i]
-                if (!skipCondition && typeof item === 'object' && item.condition) {
-                    if (typeof item.condition === 'string') {
-                        const symbol = Symbol.for(item.condition)
-                        if (!this.conditions[symbol]) {
-                            this.conditions[symbol] = generateFn<Promise<boolean>>(item.condition) as TWorkflowStepConditionFn<T>
-                        }
-                        if (!(await this.conditions[symbol](result.state.context))) continue
-                    } else {
-                        if (!(await item.condition(result.state.context))) continue
+                const item = this.normalizeWorkflowItem(schema[i])
+                if (item.continueFn) {
+                    if (await this.callConditionFn(item.continueFn, result.state.context)) {
+                        result.break = false
+                        break
                     }
                 }
+                if (item.breakFn) {
+                    if (await this.callConditionFn(item.breakFn, result.state.context)) {
+                        result.break = true
+                        break
+                    }
+                }
+                if (!skipCondition && item.conditionFn) {
+                    if (!(await this.callConditionFn(item.conditionFn, result.state.context))) continue
+                }
                 skipCondition = false
-                if (typeof item === 'string' || typeof item.id === 'string') {
-                    const stepId = typeof item === 'string' ? item : item.id
-                    result.stepId = stepId
-                    const step = this.resolveStep(stepId)
+                if (typeof item.stepId === 'string') {
+                    result.stepId = item.stepId
+                    const step = this.resolveStep(item.stepId)
                     if (!step) {
-                        throw new Error(`Step "${stepId}" not found.`)
+                        throw new Error(`Step "${item.stepId}" not found.`)
                     }
                     let mergedInput = input
-                    if (typeof item === 'object' && typeof item.input !== 'undefined') {
+                    if (typeof item.input !== 'undefined') {
                         if (typeof input === 'undefined') {
                             mergedInput = item.input as I
                         } else if (typeof item.input === 'object' && typeof input === 'object') {
@@ -177,14 +191,21 @@ export class Workflow<T> {
                         break
                     }
                 } else if (item.steps) {
-                    result = await this.loopInto({
-                        schemaId: opts.schemaId,
-                        schema: item.steps,
-                        context: result.state.context,
-                        indexes,
-                        input,
-                        level: level + 1,
-                    })
+                    while (true) {
+                        if (item.whileFn) {
+                            if (!(await this.callConditionFn(item.whileFn, result.state.context))) break
+                        }
+                        result = await this.loopInto({
+                            schemaId: opts.schemaId,
+                            schema: item.steps,
+                            context: result.state.context,
+                            indexes,
+                            input,
+                            level: level + 1,
+                        })
+                        if (!item.whileFn || result.break || result.interrupt) break
+                    }
+                    result.break = false
                     if (result.interrupt) break
                 }
                 input = undefined
@@ -217,6 +238,31 @@ export class Workflow<T> {
             result.finished = true
         }
         return result
+    }
+
+    protected getItemStepId<T>(item: TWorkflowItem<T>): string | undefined {
+        return typeof item === 'string' ? item : (item as TWorkflowStepSchemaObj<T, any>).id
+    }
+
+    protected normalizeWorkflowItem<T, I>(item: TWorkflowItem<T>): {
+        stepId?: string
+        input?: I
+        steps?: TWorkflowSchema<T>
+        conditionFn?: string | TWorkflowStepConditionFn<T>
+        continueFn?: string | TWorkflowStepConditionFn<T>
+        breakFn?: string | TWorkflowStepConditionFn<T>
+        whileFn?: string | TWorkflowStepConditionFn<T>
+    } {
+        const stepId = this.getItemStepId(item)
+        const input = (typeof item === 'object' && (item as TWorkflowStepSchemaObj<T, any>).input) as I
+        const conditionFn = (typeof item === 'object' && (item as TWorkflowStepSchemaObj<T, any>).condition) as string
+        const continueFn = (typeof item === 'object' && (item as TWorkflowControl<T>).continue) as string
+        const breakFn = (typeof item === 'object' && (item as TWorkflowControl<T>).break) as string
+        const whileFn = (typeof item === 'object' && (item as TSubWorkflowSchemaObj<T>).while) as string
+        const steps = (typeof item === 'object' && (item as TSubWorkflowSchemaObj<T>).steps) as TWorkflowSchema<T>
+        return {
+            stepId, conditionFn, steps, continueFn, breakFn, input, whileFn,
+        }
     }
 
     /**

@@ -298,8 +298,55 @@ Once we receive the required inputs from the user, we can resume the workflow:
 // resuming flow when get inputs from user
 await AuthFlow.resume('login', result.state, input) // where input is { username, password } from user
 ```
+## While Loops in Workflows
 
+Suppose we're building an email campaign that retries sending emails to users until a successful delivery or a predefined limit is reached.
 
+```ts
+flow.register('emailRetry', [
+    {
+        while: 'attempts < 5 && !emailSent',
+        steps: [{ id: 'sendEmail', input: 'user@email.com' }, { id: 'increaseAttempts' }],
+    },
+    { id: 'logFailure', condition: '!emailSent' },
+])
+```
+
+In this example, the workflow will keep trying to send an email to a user up to 5 times. After 5 attempts or a successful email delivery, it will break out of the loop. If the email isn't sent successfully after all attempts, it logs the failure.
+
+### Breaking the Loop
+
+Assume we're monitoring a production machine in a factory. If the temperature of the machine goes above a certain limit, we want to stop the machine to prevent damage.
+
+```ts
+flow.register('machineMonitor', [
+    {
+        while: 'machineRunning',
+        steps: [{ id: 'checkTemperature' }, { break: 'temperature > safeLimit' }, { id: 'continueOperation' }],
+    },
+    { id: 'stopMachine', condition: 'temperature > safeLimit' },
+])
+```
+
+In this case, we check the machine's temperature while it's running. If the temperature goes above the safe limit, we break the loop and stop the machine.
+
+### Continuing the Loop
+
+Suppose we are validating a list of data entries. If we encounter an invalid entry, we want to skip it and continue with the next one.
+
+```ts
+flow.register('dataValidation', [
+    {
+        while: 'entries.length > 0',
+        steps: [{ id: 'checkValidity' }, { continue: '!isValid' }, { id: 'processData' }],
+    },
+    { id: 'logInvalidEntries', condition: 'invalidEntries.length > 0' },
+])
+```
+
+In this example, we validate each data entry. If an entry is not valid, we skip processing it and continue to the next entry. After validating all entries, we log the invalid ones.
+
+These examples better illustrate how the 'while', 'break', and 'continue' constructs can be utilized in real-world scenarios to create dynamic and flexible workflows.
 
 # API Reference
 

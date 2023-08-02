@@ -11,6 +11,7 @@ export interface TFlowOutput<T, I> {
     finished: boolean
     inputRequired?: unknown
     interrupt?: boolean
+    break?: boolean
     stepId: string
     resume?: ((input: I) => Promise<TFlowOutput<T, unknown>>)
     retry?: ((input?: I) => Promise<TFlowOutput<T, unknown>>)
@@ -27,10 +28,13 @@ export interface TWorkflowStepSchemaObj<T, I> {
 }
 export interface TSubWorkflowSchemaObj<T> {
     condition?: string | TWorkflowStepConditionFn<T>
+    while?: string | TWorkflowStepConditionFn<T>
     steps: TWorkflowSchema<T>
     id?: never
 }
-export type TWorkflowItem<T> = TWorkflowStepSchemaObj<T, any> | TSubWorkflowSchemaObj<T> | string
+export type TWorkflowControl<T> = { continue: string | TWorkflowStepConditionFn<T>, break?: never } | { break: string | TWorkflowStepConditionFn<T>, continue?: never  }
+
+export type TWorkflowItem<T> = TWorkflowStepSchemaObj<T, any> | TSubWorkflowSchemaObj<T> | TWorkflowControl<T> | string
 
 export type TWorkflowSchema<T> = TWorkflowItem<T>[]
 
