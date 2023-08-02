@@ -1,3 +1,19 @@
+## [0.0.4](https://github.com/prostojs/wf/compare/v0.0.3...v0.0.4) (2023-08-02)
+
+
+### Bug Fixes
+
+* fix test cases ([455db33](https://github.com/prostojs/wf/commit/455db33efbb9b1bcffcd7620f55d522ba5f654a4))
+* fix test cases ([f908de0](https://github.com/prostojs/wf/commit/f908de04efe04d39b54ea203f781150b8e981e08))
+
+
+### Features
+
+* add spy interface for monitoring wf ([e18f2bd](https://github.com/prostojs/wf/commit/e18f2bd9a39aa47878dcf50955cba2a02d97ed4b))
+* add while loops ([2ea7d34](https://github.com/prostojs/wf/commit/2ea7d34aa68a3a22734fcdd59900a8869141e402))
+
+
+
 ## [0.0.3](https://github.com/prostojs/wf/compare/v0.0.2...v0.0.3) (2023-07-28)
 
 
