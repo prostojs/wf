@@ -304,7 +304,7 @@ export class Workflow<T> {
         whileFn?: string | TWorkflowStepConditionFn<T>
     } {
         const stepId = this.getItemStepId(item)
-        const input = (typeof item === 'object' && (item as TWorkflowStepSchemaObj<T, any>).input) as I
+        const input = (typeof item === 'object' ? (item as TWorkflowStepSchemaObj<T, any>).input as I : undefined) 
         const conditionFn = (typeof item === 'object' && (item as TWorkflowStepSchemaObj<T, any>).condition) as string
         const continueFn = (typeof item === 'object' && (item as TWorkflowControl<T>).continue) as string
         const breakFn = (typeof item === 'object' && (item as TWorkflowControl<T>).break) as string
