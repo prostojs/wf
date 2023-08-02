@@ -52,7 +52,7 @@ export function createStep<T = any, I = any, D = any>(id: string, opts: {
 }) {
     let _handler: TStepHandler<T, I, D>
     const step = new Step<T, I, D>(id, async (ctx, input) => {
-        if (opts.input && !input) {
+        if (opts.input && typeof input === 'undefined') {
             return { inputRequired: opts.input }
         }
         return await _handler(ctx, input)
