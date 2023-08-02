@@ -1,3 +1,13 @@
+## [0.0.6](https://github.com/prostojs/wf/compare/v0.0.5...v0.0.6) (2023-08-02)
+
+
+### Bug Fixes
+
+* fix input check ([8bcc33a](https://github.com/prostojs/wf/commit/8bcc33a1588a979fc444c0a0cf29c25996daf9ed))
+* fix input check in createStep ([d847aa0](https://github.com/prostojs/wf/commit/d847aa0605d84dd643350d937f7efc545da2e228))
+
+
+
 ## [0.0.5](https://github.com/prostojs/wf/compare/v0.0.4...v0.0.5) (2023-08-02)
 
 
