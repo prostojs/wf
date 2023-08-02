@@ -15,7 +15,7 @@ const spy: TWorkflowSpy<{ result: number }, unknown> = (event, val, result, ms) 
     }
     let _ms = ''
     if (typeof ms === 'number') {
-        _ms = `\t~${Math.min(1, ms) }ms`
+        _ms = `\t~${Math.max(1, ms) }ms`
     }
     spyLog.push(`${ '  '.repeat(result.state.indexes.length) }${event}: ${output} (result = ${ result.state.context?.result })${ _ms }`)
 }
