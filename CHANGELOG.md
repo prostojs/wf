@@ -1,3 +1,12 @@
+## [0.0.5](https://github.com/prostojs/wf/compare/v0.0.4...v0.0.5) (2023-08-02)
+
+
+### Features
+
+* add spy argument to start/resume ([7ebb9f5](https://github.com/prostojs/wf/commit/7ebb9f52e1121be08f0eb278a8494dc50873da18))
+
+
+
 ## [0.0.4](https://github.com/prostojs/wf/compare/v0.0.3...v0.0.4) (2023-08-02)
 
 
