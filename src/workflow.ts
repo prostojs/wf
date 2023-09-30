@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { TFlowOutput, TWorkflowItem, TWorkflowSchema, TWorkflowStepConditionFn, StepRetriableError, TSubWorkflowSchemaObj, TWorkflowStepSchemaObj, TWorkflowControl } from './types'
 import { Step } from './step'
-import { generateFn } from './utils/generate-fn'
+import { FtringsPool } from '@prostojs/ftring'
 import { TWorkflowSpy } from './spy'
 
 /**
@@ -36,9 +36,9 @@ export class Workflow<T> {
 
     protected schemas: Record<string, TWorkflowSchema<T>> = {}
 
-    protected fns: Record<symbol, TWorkflowStepConditionFn<T>> = {}
-
     protected spies: TWorkflowSpy<T, any>[] = []
+
+    protected fnPool = new FtringsPool<Promise<boolean>, unknown>()
 
     constructor(protected steps: Step<T, any, any>[]) {
         for (const step of steps) {
@@ -152,11 +152,7 @@ export class Workflow<T> {
         let conditionResult = false
         const now = new Date().getTime()
         if (typeof fn === 'string') {
-            const symbol = Symbol.for(fn)
-            if (!this.fns[symbol]) {
-                this.fns[symbol] = generateFn<Promise<boolean>>(fn) as TWorkflowStepConditionFn<T>
-            }
-            conditionResult = (await this.fns[symbol](result.state.context))
+            conditionResult = (await this.fnPool.call(fn, result.state.context))
         } else {
             conditionResult = (await fn(result.state.context))
         }

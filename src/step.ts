@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { generateFn } from './utils/generate-fn'
+import { FtringsPool } from '@prostojs/ftring'
 import { TStepHandler, TStepOutput, StepRetriableError } from './types'
+
+const fnPool = new FtringsPool<TStepOutput, Record<string, unknown>>()
 
 /**
  * Workflow Step
@@ -23,14 +25,17 @@ export class Step<T, I, D> {
     protected _handler?: TStepHandler<T, I, D>
 
     public getGlobals(ctx: T, input: I): Record<string, unknown> {
-        return { StepRetriableError, ...this.globals, ctx, input }
+        const globals = Object.assign({ StepRetriableError }, this.globals)
+        globals.ctx = ctx
+        globals.input = input
+        return globals
     }
 
     public handle(ctx: T, input: I) {
         if (!this._handler) {
             if (typeof this.handler === 'string') {
-                const fn = generateFn<TStepOutput>(this.handler)
-                this._handler = (ctx: T, input: I) => fn(this.getGlobals(ctx, input))
+                const code = this.handler
+                this._handler = (ctx: T, input: I) => fnPool.call(code, this.getGlobals(ctx, input))
             } else {
                 this._handler = this.handler
             }
@@ -58,8 +63,8 @@ export function createStep<T = any, I = any, D = any>(id: string, opts: {
         return await _handler(ctx, input)
     })
     if (typeof opts.handler === 'string') {
-        const fn = generateFn<TStepOutput>(opts.handler)
-        _handler = (ctx: T, input: I) => fn(step.getGlobals(ctx, input))
+        const code = opts.handler
+        _handler = (ctx: T, input: I) => fnPool.call(code, step.getGlobals(ctx, input))
     } else {
         _handler = opts.handler
     }

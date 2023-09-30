@@ -51,7 +51,9 @@
       "cjs"
     ]
   },
-  "dependencies": {},
+  "dependencies": {
+    "@prostojs/ftring": "^0.0.2"
+  },
   "gitHooks": {
     "commit-msg": "node scripts/verifyCommit.js"
   },
