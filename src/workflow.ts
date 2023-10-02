@@ -246,6 +246,7 @@ export class Workflow<T> {
                             level: level + 1,
                             spy: opts.spy,
                         })
+                        input = undefined
                         if (!item.whileFn || result.break || result.interrupt) break
                     }
                     result.break = false
