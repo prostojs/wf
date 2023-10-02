@@ -1,3 +1,12 @@
+## [0.0.9](https://github.com/prostojs/wf/compare/v0.0.8...v0.0.9) (2023-10-02)
+
+
+### Bug Fixes
+
+* revert input cleanup ([dea0ceb](https://github.com/prostojs/wf/commit/dea0cebe7844644e561cd11f8799c4b2e6a24b5c))
+
+
+
 ## [0.0.8](https://github.com/prostojs/wf/compare/v0.0.7...v0.0.8) (2023-10-02)
 
 
