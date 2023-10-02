@@ -1,3 +1,12 @@
+## [0.0.8](https://github.com/prostojs/wf/compare/v0.0.7...v0.0.8) (2023-10-02)
+
+
+### Bug Fixes
+
+* clear input after passing into a loop ([77739f9](https://github.com/prostojs/wf/commit/77739f9cde031fa56306e1c451a7328e800d8ceb))
+
+
+
 ## [0.0.7](https://github.com/prostojs/wf/compare/v0.0.6...v0.0.7) (2023-09-30)
 
 
