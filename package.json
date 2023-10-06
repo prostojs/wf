@@ -52,7 +52,7 @@
     ]
   },
   "dependencies": {
-    "@prostojs/ftring": "^0.0.2"
+    "@prostojs/ftring": "^0.0.3"
   },
   "gitHooks": {
     "commit-msg": "node scripts/verifyCommit.js"
