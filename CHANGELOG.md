@@ -1,3 +1,7 @@
+## [0.0.10](https://github.com/prostojs/wf/compare/v0.0.9...v0.0.10) (2023-10-06)
+
+
+
 ## [0.0.9](https://github.com/prostojs/wf/compare/v0.0.8...v0.0.9) (2023-10-02)
 
 
