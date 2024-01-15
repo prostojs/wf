@@ -18,7 +18,7 @@
     ],
     "scripts": {
         "build": "rollup -c rollup.config.js",
-        "release": "node ./scripts/release.cjs",
+        "release": "node ./scripts/release.js",
         "test": "jest --runInBand",
         "test:cov": "jest --runInBand --coverage",
         "lint": "eslint --ext .ts src/**.ts --fix",
