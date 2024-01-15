@@ -34,7 +34,11 @@ const steps = [
         handler: 'ctx.result = ctx.result / input',
     }),
     createStep<{ result: number }>('error', {
-        handler: 'ctx.result < 0 ? new StepRetriableError(new Error("test error")) : undefined',
+        handler:
+            'ctx.result < 0 ? new StepRetriableError(new Error("test error")) : undefined',
+    }),
+    createStep<{ result: number }>('pref/test', {
+        handler: 'ctx.result = "prefix worked"',
     }),
 ]
 const flow = new Workflow<{ result: number }>(steps)
@@ -82,13 +86,26 @@ flow.register('loop-break', [
 flow.register('loop-continue', [
     {
         while: 'result < 10',
-        steps: [{ id: 'add', input: 1 }, { continue: 'result > 5' }, { id: 'mul', input: 2 }],
+        steps: [
+            { id: 'add', input: 1 },
+            { continue: 'result > 5' },
+            { id: 'mul', input: 2 },
+        ],
     },
     { id: 'mul', input: 10 },
 ])
+flow.register('with-prefix', [
+    'test',
+], 'pref')
 describe('wf', () => {
     beforeEach(() => {
         spyLog = []
+    })
+
+    it('must respect local steps prefix', async () => {
+        const result = await flow.start('with-prefix', { result: 0 })
+        expect(result.finished).toBeTruthy()
+        expect(result.state.context.result).toBe('prefix worked')
     })
     it('must run wf with input request', async () => {
         const result = await flow.start('add-mul-div', { result: 1 })

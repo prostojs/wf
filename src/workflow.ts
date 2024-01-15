@@ -36,6 +36,8 @@ export class Workflow<T> {
 
     protected schemas: Record<string, TWorkflowSchema<T>> = {}
 
+    protected schemaPrefix: Record<string, string> = {}
+
     protected spies: TWorkflowSpy<T, any>[] = []
 
     protected fnPool = new FtringsPool<Promise<boolean>, unknown>()
@@ -43,7 +45,7 @@ export class Workflow<T> {
     constructor(protected steps: Step<T, any, any>[]) {
         for (const step of steps) {
             if (this.mappedSteps[step.id]) {
-                throw new Error(`Duplicate step id "${ step.id }"`)
+                throw new Error(`Duplicate step id "${step.id}"`)
             }
             this.mappedSteps[step.id] = step
         }
@@ -59,7 +61,7 @@ export class Workflow<T> {
     }
 
     public detachSpy<I = any>(fn: TWorkflowSpy<T, I>) {
-        this.spies = this.spies.filter(spy => spy !== fn)
+        this.spies = this.spies.filter((spy) => spy !== fn)
     }
 
     public addStep<I, D>(step: Step<T, I, D>) {
@@ -73,9 +75,12 @@ export class Workflow<T> {
     protected emit(
         spy: TWorkflowSpy<T, any> | undefined,
         event: string,
-        eventOutput: string | undefined | { fn: string | TWorkflowStepConditionFn<T>, result: boolean },
+        eventOutput:
+            | string
+            | undefined
+            | { fn: string | TWorkflowStepConditionFn<T>; result: boolean },
         flowOutput: TFlowOutput<T, any>,
-        ms?: number,        
+        ms?: number,
     ) {
         runSpy(spy)
         for (const spy of this.spies) {
@@ -86,7 +91,11 @@ export class Workflow<T> {
                 try {
                     spy(event, eventOutput, flowOutput, ms)
                 } catch (e) {
-                    console.error((e as Error).message || 'Workflow spy uncought exception.', (e as Error).stack)
+                    console.error(
+                        (e as Error).message ||
+                            'Workflow spy uncought exception.',
+                        (e as Error).stack,
+                    )
                 }
             }
         }
@@ -94,50 +103,67 @@ export class Workflow<T> {
 
     /**
      * Validate that schema refers only to existing step IDs
-     * @param schemaId 
-     * @param item 
+     * @param schemaId
+     * @param item
      */
-    protected validateSchema(schemaId: string, item: TWorkflowItem<T>) {
-        const { stepId, steps } = this.normalizeWorkflowItem(item)
+    protected validateSchema(
+        schemaId: string,
+        item: TWorkflowItem<T>,
+        prefix?: string,
+    ) {
+        const { stepId, steps } = this.normalizeWorkflowItem(item, prefix)
         if (typeof stepId === 'string') {
             if (!this.resolveStep(stepId)) error(stepId)
         } else if (steps) {
             for (const step of steps) {
-                this.validateSchema(schemaId, step)
+                this.validateSchema(schemaId, step, prefix)
             }
         }
         function error(id: string) {
-            throw new Error(`Workflow schema "${ schemaId }" refers to an unknown step id "${ id }".`)
+            throw new Error(
+                `Workflow schema "${schemaId}" refers to an unknown step id "${id}".`,
+            )
         }
     }
 
     /**
      * Register flow (sequence of steps) under ID
-     * @param id 
-     * @param schema 
+     * @param id
+     * @param schema
+     * @param prefix adds to steps that not starting from '/'
      */
-    register(id: string, schema: TWorkflowSchema<T>) {
+    register(id: string, schema: TWorkflowSchema<T>, prefix?: string) {
         if (!this.schemas[id]) {
             for (const step of schema) {
-                this.validateSchema(id, step)
+                this.validateSchema(id, step, prefix)
             }
             this.schemas[id] = schema
+            if (prefix) {
+                this.schemaPrefix[id] = prefix
+            }
         } else {
-            throw new Error(`Workflow schema with id "${ id }" already registered.`)
+            throw new Error(
+                `Workflow schema with id "${id}" already registered.`,
+            )
         }
     }
 
     /**
      * Start flow by ID
-     * @param schemaId 
+     * @param schemaId
      * @param initialContext initial context
      * @param input initial input (for the first step if required)
-     * @returns 
+     * @returns
      */
-    start<I>(schemaId: string, initialContext: T, input?: I, spy?: TWorkflowSpy<T, I>): Promise<TFlowOutput<T, I>> {
+    start<I>(
+        schemaId: string,
+        initialContext: T,
+        input?: I,
+        spy?: TWorkflowSpy<T, I>,
+    ): Promise<TFlowOutput<T, I>> {
         const schema = this.schemas[schemaId]
         if (!schema) {
-            throw new Error(`Workflow schema id "${ schemaId }" does not exist.`)
+            throw new Error(`Workflow schema id "${schemaId}" does not exist.`)
         }
         return this.loopInto('workflow', {
             schemaId,
@@ -148,30 +174,45 @@ export class Workflow<T> {
         })
     }
 
-    protected async callConditionFn(spy: TWorkflowSpy<T, any> | undefined, event: string, fn: string | TWorkflowStepConditionFn<T>, result: TFlowOutput<T, unknown>): Promise<boolean> {
+    protected async callConditionFn(
+        spy: TWorkflowSpy<T, any> | undefined,
+        event: string,
+        fn: string | TWorkflowStepConditionFn<T>,
+        result: TFlowOutput<T, unknown>,
+    ): Promise<boolean> {
         let conditionResult = false
         const now = new Date().getTime()
         if (typeof fn === 'string') {
-            conditionResult = (await this.fnPool.call(fn, result.state.context))
+            conditionResult = await this.fnPool.call(fn, result.state.context)
         } else {
-            conditionResult = (await fn(result.state.context))
+            conditionResult = await fn(result.state.context)
         }
-        this.emit(spy, event, { fn, result: conditionResult }, result, new Date().getTime() - now)
+        this.emit(
+            spy,
+            event,
+            { fn, result: conditionResult },
+            result,
+            new Date().getTime() - now,
+        )
         return conditionResult
     }
 
-    protected async loopInto<I>(event: string, opts: {
-        schemaId: string
-        schema: TWorkflowSchema<T>
-        context: T
-        input?: I
-        indexes?: number[]
-        level?: number
-        spy?: TWorkflowSpy<T, I>
-    }): Promise<TFlowOutput<T, unknown>> {
+    protected async loopInto<I>(
+        event: string,
+        opts: {
+            schemaId: string
+            schema: TWorkflowSchema<T>
+            context: T
+            input?: I
+            indexes?: number[]
+            level?: number
+            spy?: TWorkflowSpy<T, I>
+        },
+    ): Promise<TFlowOutput<T, unknown>> {
+        const prefix = this.schemaPrefix[opts.schemaId]
         const schema = opts.schema
         const level = opts.level || 0
-        const indexes = opts.indexes = opts.indexes || []
+        const indexes = (opts.indexes = opts.indexes || [])
         const startIndex = indexes[level] || 0
         let skipCondition = indexes.length > level + 1 // skip condition when re-try (resume)
         indexes[level] = startIndex
@@ -182,25 +223,52 @@ export class Workflow<T> {
             finished: false,
             stepId: '',
         }
-        this.emit(opts.spy, event + '-start', event === 'subflow' ? '' : opts.schemaId, result)
+        this.emit(
+            opts.spy,
+            event + '-start',
+            event === 'subflow' ? '' : opts.schemaId,
+            result,
+        )
         try {
             for (let i = startIndex; i < schema.length; i++) {
                 indexes[level] = i
-                const item = this.normalizeWorkflowItem(schema[i])
+                const item = this.normalizeWorkflowItem(schema[i], prefix)
                 if (item.continueFn) {
-                    if (await this.callConditionFn(opts.spy, 'eval-continue-fn', item.continueFn, result)) {
+                    if (
+                        await this.callConditionFn(
+                            opts.spy,
+                            'eval-continue-fn',
+                            item.continueFn,
+                            result,
+                        )
+                    ) {
                         result.break = false
                         break
                     }
                 }
                 if (item.breakFn) {
-                    if (await this.callConditionFn(opts.spy, 'eval-break-fn', item.breakFn, result)) {
+                    if (
+                        await this.callConditionFn(
+                            opts.spy,
+                            'eval-break-fn',
+                            item.breakFn,
+                            result,
+                        )
+                    ) {
                         result.break = true
                         break
                     }
                 }
                 if (!skipCondition && item.conditionFn) {
-                    if (!(await this.callConditionFn(opts.spy, 'eval-condition-fn', item.conditionFn, result))) continue
+                    if (
+                        !(await this.callConditionFn(
+                            opts.spy,
+                            'eval-condition-fn',
+                            item.conditionFn,
+                            result,
+                        ))
+                    )
+                        continue
                 }
                 skipCondition = false
                 if (typeof item.stepId === 'string') {
@@ -213,12 +281,18 @@ export class Workflow<T> {
                     if (typeof item.input !== 'undefined') {
                         if (typeof input === 'undefined') {
                             mergedInput = item.input as I
-                        } else if (typeof item.input === 'object' && typeof input === 'object') {
+                        } else if (
+                            typeof item.input === 'object' &&
+                            typeof input === 'object'
+                        ) {
                             mergedInput = { ...item.input, ...input } as I
                         }
                     }
                     const now = new Date().getTime()
-                    const stepResult = await step.handle(result.state.context, mergedInput)
+                    const stepResult = await step.handle(
+                        result.state.context,
+                        mergedInput,
+                    )
                     const ms = new Date().getTime() - now
                     if (stepResult && stepResult.inputRequired) {
                         result.interrupt = true
@@ -226,7 +300,10 @@ export class Workflow<T> {
                         this.emit(opts.spy, 'step', item.stepId, result, ms)
                         break
                     }
-                    if (stepResult && stepResult instanceof StepRetriableError) {
+                    if (
+                        stepResult &&
+                        stepResult instanceof StepRetriableError
+                    ) {
                         retriableError(stepResult)
                         this.emit(opts.spy, 'step', item.stepId, result, ms)
                         break
@@ -235,7 +312,15 @@ export class Workflow<T> {
                 } else if (item.steps) {
                     while (true) {
                         if (item.whileFn) {
-                            if (!(await this.callConditionFn(opts.spy, 'eval-while-cond', item.whileFn, result))) break
+                            if (
+                                !(await this.callConditionFn(
+                                    opts.spy,
+                                    'eval-while-cond',
+                                    item.whileFn,
+                                    result,
+                                ))
+                            )
+                                break
                         }
                         result = await this.loopInto('subflow', {
                             schemaId: opts.schemaId,
@@ -246,7 +331,8 @@ export class Workflow<T> {
                             level: level + 1,
                             spy: opts.spy,
                         })
-                        if (!item.whileFn || result.break || result.interrupt) break
+                        if (!item.whileFn || result.break || result.interrupt)
+                            break
                     }
                     result.break = false
                     if (result.interrupt) break
@@ -257,7 +343,12 @@ export class Workflow<T> {
             if (e instanceof StepRetriableError) {
                 retriableError(e)
             } else {
-                this.emit(opts.spy, 'error:', ((e as Error).message || ''), result)
+                this.emit(
+                    opts.spy,
+                    'error:',
+                    (e as Error).message || '',
+                    result,
+                )
                 throw e
             }
         }
@@ -268,29 +359,49 @@ export class Workflow<T> {
         }
         if (result.interrupt) {
             if (level === 0) {
-                const resume = (input: unknown) => this.resume(opts.schemaId, result.state, input, opts.spy)
+                const resume = (input: unknown) =>
+                    this.resume(opts.schemaId, result.state, input, opts.spy)
                 if (result.error) {
                     result.retry = resume
                 } else {
                     result.resume = resume
                 }
             }
-            this.emit(opts.spy, event + '-interrupt', event === 'subflow' ? '' : opts.schemaId, result)
+            this.emit(
+                opts.spy,
+                event + '-interrupt',
+                event === 'subflow' ? '' : opts.schemaId,
+                result,
+            )
             return result
         }
         if (level === 0) {
             result.finished = true
         }
-        this.emit(opts.spy, event + '-end', event === 'subflow' ? '' : opts.schemaId, result)
+        this.emit(
+            opts.spy,
+            event + '-end',
+            event === 'subflow' ? '' : opts.schemaId,
+            result,
+        )
         indexes.pop()
         return result
     }
 
-    protected getItemStepId<T>(item: TWorkflowItem<T>): string | undefined {
-        return typeof item === 'string' ? item : (item as TWorkflowStepSchemaObj<T, any>).id
+    protected prefixStepId(id: string, prefix?: string) {
+        return (prefix && id[0] !== '/') ? [prefix, id].join('/') : id
     }
 
-    protected normalizeWorkflowItem<T, I>(item: TWorkflowItem<T>): {
+    protected getItemStepId<T>(item: TWorkflowItem<T>, prefix?: string): string | undefined {
+        return typeof item === 'string'
+            ? this.prefixStepId(item, prefix)
+            : (item as TWorkflowStepSchemaObj<T, any>).id
+    }
+
+    protected normalizeWorkflowItem<T, I>(
+        item: TWorkflowItem<T>,
+        prefix?: string,
+    ): {
         stepId?: string
         input?: I
         steps?: TWorkflowSchema<T>
@@ -299,27 +410,46 @@ export class Workflow<T> {
         breakFn?: string | TWorkflowStepConditionFn<T>
         whileFn?: string | TWorkflowStepConditionFn<T>
     } {
-        const stepId = this.getItemStepId(item)
-        const input = (typeof item === 'object' ? (item as TWorkflowStepSchemaObj<T, any>).input as I : undefined) 
-        const conditionFn = (typeof item === 'object' && (item as TWorkflowStepSchemaObj<T, any>).condition) as string
-        const continueFn = (typeof item === 'object' && (item as TWorkflowControl<T>).continue) as string
-        const breakFn = (typeof item === 'object' && (item as TWorkflowControl<T>).break) as string
-        const whileFn = (typeof item === 'object' && (item as TSubWorkflowSchemaObj<T>).while) as string
-        const steps = (typeof item === 'object' && (item as TSubWorkflowSchemaObj<T>).steps) as TWorkflowSchema<T>
+        const stepId = this.getItemStepId(item, prefix)
+        const input =
+            typeof item === 'object'
+                ? ((item as TWorkflowStepSchemaObj<T, any>).input as I)
+                : undefined
+        const conditionFn = (typeof item === 'object' &&
+            (item as TWorkflowStepSchemaObj<T, any>).condition) as string
+        const continueFn = (typeof item === 'object' &&
+            (item as TWorkflowControl<T>).continue) as string
+        const breakFn = (typeof item === 'object' &&
+            (item as TWorkflowControl<T>).break) as string
+        const whileFn = (typeof item === 'object' &&
+            (item as TSubWorkflowSchemaObj<T>).while) as string
+        const steps = (typeof item === 'object' &&
+            (item as TSubWorkflowSchemaObj<T>).steps) as TWorkflowSchema<T>
         return {
-            stepId, conditionFn, steps, continueFn, breakFn, input, whileFn,
+            stepId,
+            conditionFn,
+            steps,
+            continueFn,
+            breakFn,
+            input,
+            whileFn,
         }
     }
 
     /**
      * Resume (re-try) interrupted flow
-     * @param schemaId 
+     * @param schemaId
      * @param state.indexes indexes from flowResult.state.indexes
      * @param state.context context from flowResult.state.context
      * @param input optional - input for interrupted step
-     * @returns 
+     * @returns
      */
-    resume<I>(schemaId: string, state: { indexes: number[], context: T }, input: I, spy?: TWorkflowSpy<T, I>): Promise<TFlowOutput<T, unknown>> {
+    resume<I>(
+        schemaId: string,
+        state: { indexes: number[]; context: T },
+        input: I,
+        spy?: TWorkflowSpy<T, I>,
+    ): Promise<TFlowOutput<T, unknown>> {
         const schema = this.schemas[schemaId]
         if (!schema) {
             throw new Error(`Workflow schema id "${schemaId}" does not exist.`)
