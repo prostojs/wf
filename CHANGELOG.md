@@ -1,3 +1,12 @@
+## [0.0.12](https://github.com/prostojs/wf/compare/v0.0.11...v0.0.12) (2024-01-15)
+
+
+### Features
+
+* add prefixed schemas steps ([f8b7596](https://github.com/prostojs/wf/commit/f8b7596661c788b768ec2eb396b1e0108f0105bd))
+
+
+
 ## [0.0.11](https://github.com/prostojs/wf/compare/v0.0.10...v0.0.11) (2024-01-15)
 
 
