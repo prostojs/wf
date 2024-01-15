@@ -1,9 +1,9 @@
-import typescript from 'rollup-plugin-typescript2'
-import replace from '@rollup/plugin-replace'
-import { dye } from '@prostojs/dye'
-import { nodeResolve } from '@rollup/plugin-node-resolve'
-import commonJS from '@rollup/plugin-commonjs'
-import { dts } from 'rollup-plugin-dts'
+const typescript = require('rollup-plugin-typescript2')
+const replace = require('@rollup/plugin-replace')
+const { dye } = require('@prostojs/dye')
+const { nodeResolve } = require('@rollup/plugin-node-resolve')
+const commonJS = require('@rollup/plugin-commonjs')
+const { dts } = require('rollup-plugin-dts')
 
 const dyeModifiers = [
     'dim',
@@ -92,7 +92,7 @@ function createDtsConfig() {
     }
 }
 
-export default configs
+module.exports = configs
 
 function createDyeReplaceConst() {
     const c = dye('red')

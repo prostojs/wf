@@ -1,8 +1,8 @@
-import { dye } from '@prostojs/dye'
+const { dye } = require('@prostojs/dye')
 
 // Invoked on the commit-msg git hook by yorkie.
 const msgPath = process.env.GIT_PARAMS
-import fs from 'fs'
+const fs = require('fs')
 const msg = fs.readFileSync(msgPath, 'utf-8')
   .trim()
 
