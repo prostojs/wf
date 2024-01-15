@@ -1,98 +1,72 @@
 {
-  "name": "@prostojs/wf",
-  "version": "0.0.10",
-  "description": "Generic workflow framework",
-  "main": "index.js",
-  "module": "dist/wf.esm-bundler.js",
-  "types": "dist/wf.d.ts",
-  "files": [
-    "index.js",
-    "dist"
-  ],
-  "exports": {
-    ".": {
-      "import": "./dist/wf.esm-bundler.js",
-      "require": "./index.js",
-      "types": "./dist/wf.d.ts"
+    "name": "@prostojs/wf",
+    "version": "0.0.10",
+    "description": "Generic workflow framework",
+    "main": "dist/index.cjs",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+        ".": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs",
+            "types": "./dist/index.d.ts"
+        }
     },
-    "./dist/wf.esm-bundler.js": {
-      "import": "./dist/wf.esm-bundler.js"
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "rollup -c rollup.config.js",
+        "release": "node ./scripts/release",
+        "test": "jest --runInBand",
+        "test:cov": "jest --runInBand --coverage",
+        "lint": "eslint --ext .ts src/**.ts --fix",
+        "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
+        "version": "conventional-changelog -p angular -i CHANGELOG.md -s && git add CHANGELOG.md"
     },
-    "./dist/index.cjs": {
-      "require": "./dist/index.cjs"
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/prostojs/wf.git"
     },
-    "./dist/wf.d.ts": {
-      "types": "./dist/wf.d.ts"
+    "keywords": [
+        "prostojs",
+        "workflow",
+        "wf"
+    ],
+    "buildOptions": {
+        "name": "wf",
+        "formats": [
+            "esm-bundler",
+            "cjs"
+        ]
+    },
+    "dependencies": {
+        "@prostojs/ftring": "^0.0.3"
+    },
+    "gitHooks": {
+        "commit-msg": "node scripts/verifyCommit.js"
+    },
+    "author": "Artem Maltsev",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/prostojs/wf/issues"
+    },
+    "homepage": "https://github.com/prostojs/wf#readme",
+    "devDependencies": {
+        "@prostojs/dye": "^0.3.0",
+        "@rollup/plugin-commonjs": "^25.0.7",
+        "@rollup/plugin-node-resolve": "^15.2.3",
+        "@rollup/plugin-replace": "^5.0.5",
+        "@types/jest": "^29.5.5",
+        "@types/node": "^20.11.2",
+        "jest": "^29.7.0",
+        "rollup": "^4.9.5",
+        "rollup-plugin-dts": "^6.1.0",
+        "rollup-plugin-typescript2": "^0.36.0",
+        "ts-jest": "^29.1.1",
+        "typescript": "^5.2.2",
+        "yorkie": "^2.0.0"
     }
-  },
-  "sideEffects": false,
-  "scripts": {
-    "build": "node ./scripts/build",
-    "release": "node ./scripts/release",
-    "test": "jest --runInBand",
-    "test:cov": "jest --runInBand --coverage",
-    "lint": "eslint --ext .ts src/**.ts --fix",
-    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
-    "version": "conventional-changelog -p angular -i CHANGELOG.md -s && git add CHANGELOG.md"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/prostojs/wf.git"
-  },
-  "keywords": [
-    "prostojs",
-    "workflow",
-    "wf"
-  ],
-  "buildOptions": {
-    "name": "wf",
-    "formats": [
-      "esm-bundler",
-      "cjs"
-    ]
-  },
-  "dependencies": {
-    "@prostojs/ftring": "^0.0.3"
-  },
-  "gitHooks": {
-    "commit-msg": "node scripts/verifyCommit.js"
-  },
-  "author": "Artem Maltsev",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/prostojs/wf/issues"
-  },
-  "homepage": "https://github.com/prostojs/wf#readme",
-  "devDependencies": {
-    "@microsoft/api-extractor": "^7.30.0",
-    "@prostojs/dye": "^0.3.0",
-    "@rollup/plugin-commonjs": "^21.0.0",
-    "@rollup/plugin-node-resolve": "^13.0.6",
-    "@rollup/plugin-replace": "^3.0.0",
-    "@types/jest": "^27.5.2",
-    "@types/node": "^16.11.57",
-    "@typescript-eslint/eslint-plugin": "^6.1.0",
-    "@typescript-eslint/parser": "^6.1.0",
-    "brotli": "^1.3.3",
-    "conventional-changelog": "^3.1.24",
-    "conventional-changelog-cli": "^2.1.1",
-    "enquirer": "^2.3.6",
-    "eslint": "^7.32.0",
-    "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-import": "^2.24.2",
-    "execa": "^5.1.1",
-    "fs-extra": "^10.0.0",
-    "jest": "^27.2.5",
-    "minimist": "^1.2.6",
-    "rollup": "^2.58.0",
-    "rollup-plugin-terser": "^7.0.2",
-    "rollup-plugin-typescript2": "^0.35.0",
-    "semver": "^7.3.5",
-    "ts-jest": "^29.1.1",
-    "ts-node": "^10.9.1",
-    "tslib": "^2.3.1",
-    "typescript": "^5.1.6",
-    "yorkie": "^2.0.0",
-    "zlib": "^1.0.5"
-  }
 }

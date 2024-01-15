@@ -1,30 +1,26 @@
 {
     "compilerOptions": {
-        "target": "es2019",
-        "lib": [
-            "es2019", "DOM", "DOM.Iterable"
-        ],
-        "module": "ESNext",
-        "declaration": true,
-        "sourceMap": true,
+        "baseUrl": ".",
+        "outDir": "dist",
         "moduleResolution": "node",
-        "resolveJsonModule": true,
-        "rootDir": ".",
-        "allowJs": false,
-        "outDir": "build",
-        "downlevelIteration": true,
         "esModuleInterop": true,
+        "target": "ES2020",
+        "lib": ["ESNext"],
+        "noUnusedLocals": true,
+        "types": ["jest", "node"],
+        "declaration": false,
+        "declarationMap": false,
+        "resolveJsonModule": true,
+        "downlevelIteration": true,
         "forceConsistentCasingInFileNames": true,
         "strict": true,
         "noImplicitAny": true,
         "skipLibCheck": true,
-        "noUnusedLocals": false,
-        "noLib": false,
-        "removeComments": true,
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true,
-        "types": ["jest", "node"],
+        "removeComments": true
     },
-    "include": ["src/*", "src/**/*", "**/*.spec.ts"],
-    "exclude": ["node_modules", "explorations", "scripts"]
+    "include": [
+        "src"
+    ]
 }
