@@ -1,6 +1,6 @@
 {
     "name": "@prostojs/wf",
-    "version": "0.0.10",
+    "version": "0.0.11",
     "description": "Generic workflow framework",
     "main": "dist/index.cjs",
     "module": "dist/index.mjs",

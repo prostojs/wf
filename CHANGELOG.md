@@ -1,3 +1,13 @@
+## [0.0.11](https://github.com/prostojs/wf/compare/v0.0.10...v0.0.11) (2024-01-15)
+
+
+### Bug Fixes
+
+* fix mjs build ([559f542](https://github.com/prostojs/wf/commit/559f542b970078eade1e4672c1665ff3945c2422))
+* update release script ([46babba](https://github.com/prostojs/wf/commit/46babbaed8f4113ffc63dc12fc9133cb2c8956f7))
+
+
+
 ## [0.0.10](https://github.com/prostojs/wf/compare/v0.0.9...v0.0.10) (2023-10-06)
 
 
