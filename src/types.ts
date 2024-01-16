@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export type TStepOutput = void | { inputRequired: unknown }
+export type TStepOutput = void | { inputRequired: unknown, expires?: number, errorList?: unknown[] }
 export type TStepHandler<T, I, D> = ((ctx: T, input: I) => TStepOutput | StepRetriableError<D> | Promise<TStepOutput | StepRetriableError<D>>)
 
 export interface TFlowOutput<T, I> {
@@ -16,6 +16,8 @@ export interface TFlowOutput<T, I> {
     resume?: ((input: I) => Promise<TFlowOutput<T, unknown>>)
     retry?: ((input?: I) => Promise<TFlowOutput<T, unknown>>)
     error?: Error
+    expires?: number
+    errorList?: unknown[]
 }
 
 export type TWorkflowStepConditionFn<T> = ((ctx: T) => boolean | Promise<boolean>)
@@ -39,7 +41,14 @@ export type TWorkflowItem<T> = TWorkflowStepSchemaObj<T, any> | TSubWorkflowSche
 export type TWorkflowSchema<T> = TWorkflowItem<T>[]
 
 export class StepRetriableError<D> extends Error {
-    constructor(public readonly originalError: Error, public readonly inputRequired?: D) {
+    name = 'StepRetriableError'
+
+    constructor(
+        public readonly originalError: Error,
+        public errorList?: unknown[],
+        public readonly inputRequired?: D,
+        public expires?: number,
+    ) {
         super(originalError.message)
     }
 }

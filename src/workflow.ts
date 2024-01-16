@@ -297,6 +297,8 @@ export class Workflow<T> {
                     if (stepResult && stepResult.inputRequired) {
                         result.interrupt = true
                         result.inputRequired = stepResult.inputRequired
+                        result.expires = stepResult.expires
+                        result.errorList = stepResult.errorList
                         this.emit(opts.spy, 'step', item.stepId, result, ms)
                         break
                     }
@@ -356,6 +358,8 @@ export class Workflow<T> {
             result.interrupt = true
             result.error = e.originalError
             result.inputRequired = e.inputRequired
+            result.errorList = e.errorList
+            result.expires = e.expires
         }
         if (result.interrupt) {
             if (level === 0) {
