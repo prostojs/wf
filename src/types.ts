@@ -3,8 +3,8 @@ export type TStepOutput = void | { inputRequired: unknown, expires?: number, err
 export type TStepHandler<T, I, D> = ((ctx: T, input: I) => TStepOutput | StepRetriableError<D> | Promise<TStepOutput | StepRetriableError<D>>)
 
 export interface TFlowOutput<T, I> {
-    schemaId: string
     state: {
+        schemaId: string
         context: T
         indexes: number[]
     },

@@ -200,13 +200,13 @@ export class Workflow<T> {
     protected async loopInto<I>(
         event: string,
         opts: {
-            schemaId: string
-            schema: TWorkflowSchema<T>
-            context: T
-            input?: I
-            indexes?: number[]
-            level?: number
-            spy?: TWorkflowSpy<T, I>
+            schemaId: string;
+            schema: TWorkflowSchema<T>;
+            context: T;
+            input?: I;
+            indexes?: number[];
+            level?: number;
+            spy?: TWorkflowSpy<T, I>;
         },
     ): Promise<TFlowOutput<T, unknown>> {
         const prefix = this.schemaPrefix[opts.schemaId]
@@ -218,8 +218,7 @@ export class Workflow<T> {
         indexes[level] = startIndex
         let input = opts.input
         let result: TFlowOutput<T, unknown> = {
-            schemaId: opts.schemaId,
-            state: { context: opts.context, indexes },
+            state: { schemaId: opts.schemaId, context: opts.context, indexes },
             finished: false,
             stepId: '',
         }
@@ -364,7 +363,7 @@ export class Workflow<T> {
         if (result.interrupt) {
             if (level === 0) {
                 const resume = (input: unknown) =>
-                    this.resume(opts.schemaId, result.state, input, opts.spy)
+                    this.resume(result.state, input, opts.spy)
                 if (result.error) {
                     result.retry = resume
                 } else {
@@ -393,10 +392,13 @@ export class Workflow<T> {
     }
 
     protected prefixStepId(id: string, prefix?: string) {
-        return (prefix && id[0] !== '/') ? [prefix, id].join('/') : id
+        return prefix && id[0] !== '/' ? [prefix, id].join('/') : id
     }
 
-    protected getItemStepId<T>(item: TWorkflowItem<T>, prefix?: string): string | undefined {
+    protected getItemStepId<T>(
+        item: TWorkflowItem<T>,
+        prefix?: string,
+    ): string | undefined {
         return typeof item === 'string'
             ? this.prefixStepId(item, prefix)
             : (item as TWorkflowStepSchemaObj<T, any>).id
@@ -406,13 +408,13 @@ export class Workflow<T> {
         item: TWorkflowItem<T>,
         prefix?: string,
     ): {
-        stepId?: string
-        input?: I
-        steps?: TWorkflowSchema<T>
-        conditionFn?: string | TWorkflowStepConditionFn<T>
-        continueFn?: string | TWorkflowStepConditionFn<T>
-        breakFn?: string | TWorkflowStepConditionFn<T>
-        whileFn?: string | TWorkflowStepConditionFn<T>
+        stepId?: string;
+        input?: I;
+        steps?: TWorkflowSchema<T>;
+        conditionFn?: string | TWorkflowStepConditionFn<T>;
+        continueFn?: string | TWorkflowStepConditionFn<T>;
+        breakFn?: string | TWorkflowStepConditionFn<T>;
+        whileFn?: string | TWorkflowStepConditionFn<T>;
     } {
         const stepId = this.getItemStepId(item, prefix)
         const input =
@@ -449,17 +451,16 @@ export class Workflow<T> {
      * @returns
      */
     resume<I>(
-        schemaId: string,
-        state: { indexes: number[]; context: T },
+        state: TFlowOutput<T, I>['state'],
         input: I,
         spy?: TWorkflowSpy<T, I>,
     ): Promise<TFlowOutput<T, unknown>> {
-        const schema = this.schemas[schemaId]
+        const schema = this.schemas[state.schemaId]
         if (!schema) {
-            throw new Error(`Workflow schema id "${schemaId}" does not exist.`)
+            throw new Error(`Workflow schema id "${state.schemaId}" does not exist.`)
         }
         return this.loopInto('resume', {
-            schemaId,
+            schemaId: state.schemaId,
             context: state.context,
             indexes: state.indexes,
             schema,
