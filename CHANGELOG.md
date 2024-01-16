@@ -1,3 +1,12 @@
+## [0.0.13](https://github.com/prostojs/wf/compare/v0.0.12...v0.0.13) (2024-01-16)
+
+
+### Features
+
+* add errorList and expires to wf result ([4d11c1b](https://github.com/prostojs/wf/commit/4d11c1b1b46a32b7c4e6147b7b4539b88b479c7b))
+
+
+
 ## [0.0.12](https://github.com/prostojs/wf/compare/v0.0.11...v0.0.12) (2024-01-15)
 
 
