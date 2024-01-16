@@ -1,3 +1,12 @@
+## [0.0.14](https://github.com/prostojs/wf/compare/v0.0.13...v0.0.14) (2024-01-16)
+
+
+### Features
+
+* braking - move schemaId to state ([c00a3b2](https://github.com/prostojs/wf/commit/c00a3b290984912f21602e24dd6b576628b7acdd))
+
+
+
 ## [0.0.13](https://github.com/prostojs/wf/compare/v0.0.12...v0.0.13) (2024-01-16)
 
 
