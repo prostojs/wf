@@ -1,3 +1,12 @@
+## [0.0.17](https://github.com/prostojs/wf/compare/v0.0.16...v0.0.17) (2024-01-19)
+
+
+### Bug Fixes
+
+* fix prefixStepId for undefined id ([a060568](https://github.com/prostojs/wf/commit/a06056801c929dcb2063b802b782e2b4e815a4b3))
+
+
+
 ## [0.0.16](https://github.com/prostojs/wf/compare/v0.0.15...v0.0.16) (2024-01-19)
 
 
