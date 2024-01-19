@@ -1,3 +1,12 @@
+## [0.0.16](https://github.com/prostojs/wf/compare/v0.0.15...v0.0.16) (2024-01-19)
+
+
+### Bug Fixes
+
+* fix getItemStepId with prefix ([5ff23e6](https://github.com/prostojs/wf/commit/5ff23e68f7c9dab4ae8d2dd3d9e59924082dbc9c))
+
+
+
 ## [0.0.15](https://github.com/prostojs/wf/compare/v0.0.14...v0.0.15) (2024-01-19)
 
 
