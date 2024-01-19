@@ -1,3 +1,12 @@
+## [0.0.15](https://github.com/prostojs/wf/compare/v0.0.14...v0.0.15) (2024-01-19)
+
+
+### Features
+
+* add generic for inputRequired ([badece7](https://github.com/prostojs/wf/commit/badece7e575032fbff064d1df7fe4da877c88596))
+
+
+
 ## [0.0.14](https://github.com/prostojs/wf/compare/v0.0.13...v0.0.14) (2024-01-16)
 
 
