@@ -399,9 +399,9 @@ export class Workflow<T, IR> {
         item: TWorkflowItem<T>,
         prefix?: string,
     ): string | undefined {
-        return typeof item === 'string'
-            ? this.prefixStepId(item, prefix)
-            : (item as TWorkflowStepSchemaObj<T, any>).id
+        return this.prefixStepId(typeof item === 'string'
+            ? item
+            : (item as TWorkflowStepSchemaObj<T, any>).id, prefix)
     }
 
     protected normalizeWorkflowItem<T, I>(
