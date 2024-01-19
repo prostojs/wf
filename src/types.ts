@@ -1,23 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export type TStepOutput = void | { inputRequired: unknown, expires?: number, errorList?: unknown[] }
-export type TStepHandler<T, I, D> = ((ctx: T, input: I) => TStepOutput | StepRetriableError<D> | Promise<TStepOutput | StepRetriableError<D>>)
+export type TStepOutput<IR> = void | { inputRequired: IR, expires?: number, errorList?: unknown }
+export type TStepHandler<T, I, IR> = ((ctx: T, input: I) => TStepOutput<IR> | StepRetriableError<IR> | Promise<TStepOutput<IR> | StepRetriableError<IR>>)
 
-export interface TFlowOutput<T, I> {
+export interface TFlowOutput<T, I, IR> {
     state: {
         schemaId: string
         context: T
         indexes: number[]
     },
     finished: boolean
-    inputRequired?: unknown
+    inputRequired?: IR
     interrupt?: boolean
     break?: boolean
     stepId: string
-    resume?: ((input: I) => Promise<TFlowOutput<T, unknown>>)
-    retry?: ((input?: I) => Promise<TFlowOutput<T, unknown>>)
+    resume?: ((input: I) => Promise<TFlowOutput<T, unknown, IR>>)
+    retry?: ((input?: I) => Promise<TFlowOutput<T, unknown, IR>>)
     error?: Error
     expires?: number
-    errorList?: unknown[]
+    errorList?: unknown
 }
 
 export type TWorkflowStepConditionFn<T> = ((ctx: T) => boolean | Promise<boolean>)
@@ -40,13 +40,13 @@ export type TWorkflowItem<T> = TWorkflowStepSchemaObj<T, any> | TSubWorkflowSche
 
 export type TWorkflowSchema<T> = TWorkflowItem<T>[]
 
-export class StepRetriableError<D> extends Error {
+export class StepRetriableError<IR> extends Error {
     name = 'StepRetriableError'
 
     constructor(
         public readonly originalError: Error,
-        public errorList?: unknown[],
-        public readonly inputRequired?: D,
+        public errorList?: unknown,
+        public readonly inputRequired?: IR,
         public expires?: number,
     ) {
         super(originalError.message)

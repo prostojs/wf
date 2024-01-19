@@ -2,7 +2,7 @@
 import { FtringsPool } from '@prostojs/ftring'
 import { TStepHandler, TStepOutput, StepRetriableError } from './types'
 
-const fnPool = new FtringsPool<TStepOutput, Record<string, unknown>>()
+const fnPool = new FtringsPool<TStepOutput<any>, Record<string, any>>()
 
 /**
  * Workflow Step
@@ -15,14 +15,14 @@ const fnPool = new FtringsPool<TStepOutput, Record<string, unknown>>()
  *      console.log('step0 completed')
  *  })
  */
-export class Step<T, I, D> {
+export class Step<T, I, IR> {
     constructor(
         public readonly id: string,
-        protected handler: string | TStepHandler<T, I, D>,
+        protected handler: string | TStepHandler<T, I, IR>,
         protected globals: Record<string, unknown> = {}
     ) { }
 
-    protected _handler?: TStepHandler<T, I, D>
+    protected _handler?: TStepHandler<T, I, IR>
 
     public getGlobals(ctx: T, input: I): Record<string, unknown> {
         const globals = Object.assign({ StepRetriableError }, this.globals)
@@ -51,17 +51,17 @@ export class Step<T, I, D> {
  * @param opts.handler step handler
  * @returns Step
  */
-export function createStep<T = any, I = any, D = any>(id: string, opts: {
-    input?: D
-    handler: string | TStepHandler<T, I, D>
+export function createStep<T = any, I = any, IR = any>(id: string, opts: {
+    input?: I
+    handler: string | TStepHandler<T, I, IR>
 }) {
-    let _handler: TStepHandler<T, I, D>
-    const step = new Step<T, I, D>(id, async (ctx, input) => {
+    let _handler: TStepHandler<T, I, IR>
+    const step = new Step<T, I, IR>(id, (async (ctx, input) => {
         if (opts.input && typeof input === 'undefined') {
             return { inputRequired: opts.input }
         }
         return await _handler(ctx, input)
-    })
+    }) as TStepHandler<T, I, IR>)
     if (typeof opts.handler === 'string') {
         const code = opts.handler
         _handler = (ctx: T, input: I) => fnPool.call(code, step.getGlobals(ctx, input))

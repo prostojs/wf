@@ -31,18 +31,18 @@ import { TWorkflowSpy } from './spy'
  * ])
  * const result = await flow.start('add-mul-div', { result: 1 })
  */
-export class Workflow<T> {
-    protected mappedSteps: Record<string, Step<T, any, any>> = {}
+export class Workflow<T, IR> {
+    protected mappedSteps: Record<string, Step<T, any, IR>> = {}
 
     protected schemas: Record<string, TWorkflowSchema<T>> = {}
 
     protected schemaPrefix: Record<string, string> = {}
 
-    protected spies: TWorkflowSpy<T, any>[] = []
+    protected spies: TWorkflowSpy<T, any, IR>[] = []
 
     protected fnPool = new FtringsPool<Promise<boolean>, unknown>()
 
-    constructor(protected steps: Step<T, any, any>[]) {
+    constructor(protected steps: Step<T, any, IR>[]) {
         for (const step of steps) {
             if (this.mappedSteps[step.id]) {
                 throw new Error(`Duplicate step id "${step.id}"`)
@@ -55,16 +55,16 @@ export class Workflow<T> {
         return this.mappedSteps[stepId]
     }
 
-    public attachSpy<I = any>(fn: TWorkflowSpy<T, I>) {
+    public attachSpy<I = any>(fn: TWorkflowSpy<T, I, IR>) {
         this.spies.push(fn)
         return () => this.detachSpy(fn)
     }
 
-    public detachSpy<I = any>(fn: TWorkflowSpy<T, I>) {
+    public detachSpy<I = any>(fn: TWorkflowSpy<T, I, IR>) {
         this.spies = this.spies.filter((spy) => spy !== fn)
     }
 
-    public addStep<I, D>(step: Step<T, I, D>) {
+    public addStep<I>(step: Step<T, I, IR>) {
         if (this.mappedSteps[step.id]) {
             throw new Error(`Duplicate step id "${step.id}"`)
         }
@@ -73,20 +73,20 @@ export class Workflow<T> {
     }
 
     protected emit(
-        spy: TWorkflowSpy<T, any> | undefined,
+        spy: TWorkflowSpy<T, any, IR> | undefined,
         event: string,
         eventOutput:
             | string
             | undefined
             | { fn: string | TWorkflowStepConditionFn<T>; result: boolean },
-        flowOutput: TFlowOutput<T, any>,
+        flowOutput: TFlowOutput<T, any, IR>,
         ms?: number,
     ) {
         runSpy(spy)
         for (const spy of this.spies) {
             runSpy(spy)
         }
-        function runSpy(spy: TWorkflowSpy<T, any> | undefined) {
+        function runSpy(spy: TWorkflowSpy<T, any, IR> | undefined) {
             if (spy) {
                 try {
                     spy(event, eventOutput, flowOutput, ms)
@@ -159,8 +159,8 @@ export class Workflow<T> {
         schemaId: string,
         initialContext: T,
         input?: I,
-        spy?: TWorkflowSpy<T, I>,
-    ): Promise<TFlowOutput<T, I>> {
+        spy?: TWorkflowSpy<T, I, IR>,
+    ): Promise<TFlowOutput<T, I, IR>> {
         const schema = this.schemas[schemaId]
         if (!schema) {
             throw new Error(`Workflow schema id "${schemaId}" does not exist.`)
@@ -175,10 +175,10 @@ export class Workflow<T> {
     }
 
     protected async callConditionFn(
-        spy: TWorkflowSpy<T, any> | undefined,
+        spy: TWorkflowSpy<T, any, IR> | undefined,
         event: string,
         fn: string | TWorkflowStepConditionFn<T>,
-        result: TFlowOutput<T, unknown>,
+        result: TFlowOutput<T, unknown, IR>,
     ): Promise<boolean> {
         let conditionResult = false
         const now = new Date().getTime()
@@ -206,9 +206,9 @@ export class Workflow<T> {
             input?: I;
             indexes?: number[];
             level?: number;
-            spy?: TWorkflowSpy<T, I>;
+            spy?: TWorkflowSpy<T, I, IR>;
         },
-    ): Promise<TFlowOutput<T, unknown>> {
+    ): Promise<TFlowOutput<T, unknown, IR>> {
         const prefix = this.schemaPrefix[opts.schemaId]
         const schema = opts.schema
         const level = opts.level || 0
@@ -217,7 +217,7 @@ export class Workflow<T> {
         let skipCondition = indexes.length > level + 1 // skip condition when re-try (resume)
         indexes[level] = startIndex
         let input = opts.input
-        let result: TFlowOutput<T, unknown> = {
+        let result: TFlowOutput<T, unknown, IR> = {
             state: { schemaId: opts.schemaId, context: opts.context, indexes },
             finished: false,
             stepId: '',
@@ -342,7 +342,7 @@ export class Workflow<T> {
             }
         } catch (e) {
             if (e instanceof StepRetriableError) {
-                retriableError(e)
+                retriableError(e as StepRetriableError<IR>)
             } else {
                 this.emit(
                     opts.spy,
@@ -353,7 +353,7 @@ export class Workflow<T> {
                 throw e
             }
         }
-        function retriableError(e: StepRetriableError<any>) {
+        function retriableError(e: StepRetriableError<IR>) {
             result.interrupt = true
             result.error = e.originalError
             result.inputRequired = e.inputRequired
@@ -451,10 +451,10 @@ export class Workflow<T> {
      * @returns
      */
     resume<I>(
-        state: TFlowOutput<T, I>['state'],
+        state: TFlowOutput<T, I, IR>['state'],
         input: I,
-        spy?: TWorkflowSpy<T, I>,
-    ): Promise<TFlowOutput<T, unknown>> {
+        spy?: TWorkflowSpy<T, I, IR>,
+    ): Promise<TFlowOutput<T, unknown, IR>> {
         const schema = this.schemas[state.schemaId]
         if (!schema) {
             throw new Error(`Workflow schema id "${state.schemaId}" does not exist.`)

@@ -3,21 +3,29 @@ import { TWorkflowSpy } from './spy'
 
 let spyLog: string[] = []
 
-const spy: TWorkflowSpy<{ result: number }, unknown> = (event, val, result, ms) => {
+const spy: TWorkflowSpy<{ result: number }, unknown, unknown> = (
+    event,
+    val,
+    result,
+    ms,
+) => {
     let output = ''
     if (typeof val === 'object') {
-        const condVal = val as { fn: string, result: boolean }
+        const condVal = val as { fn: string; result: boolean }
         if (condVal.fn) {
-            output = JSON.stringify(condVal.fn) + ' -> ' + String(condVal.result)
+            output =
+                JSON.stringify(condVal.fn) + ' -> ' + String(condVal.result)
         }
     } else {
         output = JSON.stringify(val)
     }
     let _ms = ''
     if (typeof ms === 'number') {
-        _ms = `\t~${Math.max(1, ms) }ms`
+        _ms = `\t~${Math.max(1, ms)}ms`
     }
-    spyLog.push(`${ '  '.repeat(result.state.indexes.length) }${event}: ${output} (result = ${ result.state.context?.result })${ _ms }`)
+    spyLog.push(
+        `${'  '.repeat(result.state.indexes.length)}${event}: ${output} (result = ${result.state.context?.result})${_ms}`,
+    )
 }
 
 const steps = [
@@ -41,7 +49,7 @@ const steps = [
         handler: 'ctx.result = "prefix worked"',
     }),
 ]
-const flow = new Workflow<{ result: number }>(steps)
+const flow = new Workflow<{ result: number }, unknown>(steps)
 flow.attachSpy(spy)
 flow.register('add-mul-div', [
     'add', 'mul', 'div',
