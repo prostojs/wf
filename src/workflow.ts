@@ -392,6 +392,7 @@ export class Workflow<T, IR> {
     }
 
     protected prefixStepId(id: string, prefix?: string) {
+        if (!id) return id
         return prefix && id[0] !== '/' ? [prefix, id].join('/') : id
     }
 
