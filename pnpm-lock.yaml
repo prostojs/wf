@@ -6,8 +6,8 @@ settings:
 
 dependencies:
   '@prostojs/ftring':
-    specifier: ^0.0.3
-    version: 0.0.3
+    specifier: ^0.0.4
+    version: 0.0.4
 
 devDependencies:
   '@prostojs/dye':
@@ -771,8 +771,8 @@ packages:
     resolution: {integrity: sha512-cTjzK+qXL/vda4Ak/saQ9w82F41KYsDh5ycEPFR9Xkk/M4qpldH8dqOQ9ZI5sySZZAFrzoDzbRYd2GqYoyv/Ww==}
     dev: true
 
-  /@prostojs/ftring@0.0.3:
-    resolution: {integrity: sha512-23uhbe4xDWoZ7sVbmbwSuo8+OPRG8XlTsKhpTnB7Mx6odjRHHsatt+2lPi/aHvYjZ7Jc5p2Jo3CpBDONU4qlbg==}
+  /@prostojs/ftring@0.0.4:
+    resolution: {integrity: sha512-oLrPVn/UkifSfRRqDH1W055YvwxZRVHdLjlVQBPhM7xsosn0nFIQaRSNiZJH/GIRXR9ghj+INoJ9aNDJlvaogg==}
     dev: false
 
   /@rollup/plugin-commonjs@25.0.7(rollup@4.9.5):
