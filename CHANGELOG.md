@@ -1,3 +1,12 @@
+# [0.1.0](https://github.com/prostojs/wf/compare/v0.0.18...v0.1.0) (2026-03-23)
+
+
+### Features
+
+* add workflow outlets sub-export with state strategies, step helpers, and tests ([f514aab](https://github.com/prostojs/wf/commit/f514aabbcc4d6624a9e60ba218ce5d30909bc2b4))
+
+
+
 ## [0.0.18](https://github.com/prostojs/wf/compare/v0.0.17...v0.0.18) (2024-01-26)
 
 ## [0.0.17](https://github.com/prostojs/wf/compare/v0.0.16...v0.0.17) (2024-01-19)
