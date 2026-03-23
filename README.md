@@ -374,13 +374,86 @@ In this example, we validate each data entry. If an entry is not valid, we skip 
 
 These examples better illustrate how the 'while', 'break', and 'continue' constructs can be utilized in real-world scenarios to create dynamic and flexible workflows.
 
+## Outlets (`@prostojs/wf/outlets`)
+
+Workflow outlets deliver pauses to the outside world (HTTP forms, emails, pending tasks) and manage state persistence between round-trips. Import from the sub-export:
+
+```ts
+import { outlet, outletHttp, outletEmail } from '@prostojs/wf/outlets';
+import { EncapsulatedStateStrategy, HandleStateStrategy, WfStateStoreMemory } from '@prostojs/wf/outlets';
+```
+
+### Step Helpers
+
+Use these in step handlers to pause the workflow via an outlet:
+
+```ts
+// Generic outlet
+return outlet('pending-task', { payload: approvalForm, target: managerId });
+
+// HTTP form pause — delivers payload and state token in the response
+return outletHttp(LoginForm, { error: 'Invalid credentials' });
+
+// Email with magic link containing the state token
+return outletEmail('user@test.com', 'invite', { name: 'Alice' });
+```
+
+### State Strategies
+
+Two built-in strategies for persisting workflow state between round-trips:
+
+**EncapsulatedStateStrategy** — self-contained AES-256-GCM encrypted tokens. No server storage needed. Good for HTTP cookies and URL params.
+
+```ts
+import { randomBytes } from 'node:crypto';
+
+const strategy = new EncapsulatedStateStrategy({
+    secret: randomBytes(32),
+    defaultTtl: 3600_000, // 1 hour
+});
+
+const token = await strategy.persist(result.state);  // encrypted base64url string
+const state = await strategy.retrieve(token);         // null if expired/tampered
+```
+
+**HandleStateStrategy** — server-side storage with short handles. Supports single-use tokens via `consume()`.
+
+```ts
+const strategy = new HandleStateStrategy({
+    store: new WfStateStoreMemory(), // in-memory for dev; implement WfStateStore for production
+    defaultTtl: 3600_000,
+});
+
+const handle = await strategy.persist(result.state);
+const state = await strategy.consume(handle);  // retrieves then deletes (single-use)
+```
+
+### Custom Outlets
+
+Implement the `WfOutlet` interface to create custom delivery mechanisms:
+
+```ts
+import type { WfOutlet, WfOutletRequest, WfOutletResult } from '@prostojs/wf/outlets';
+
+const slackOutlet: WfOutlet = {
+    name: 'slack',
+    async deliver(request: WfOutletRequest, token: string): Promise<WfOutletResult> {
+        await slack.postMessage(request.target!, {
+            text: `Action required: ${request.payload}`,
+            actions: [{ url: `https://app.com/resume?token=${token}` }],
+        });
+        return { status: 200, response: { message: 'Notification sent' } };
+    },
+};
+```
+
 # API Reference
 
 ## Class: Step
 
 A minimum action within a workflow. Each Step instance represents a single step of a workflow.
 
-### `new Step(id, handler, globals?)`
+### `new Step(id, handler, opts?)`
 
 Constructs a new step object.
 
@@ -388,7 +461,9 @@ Constructs a new step object.
 
 - `id`: Unique string identifier for the step.
 - `handler`: Function or a string of JavaScript code that will be executed as a function during the step.
-- `globals` (optional): An object with global variables that are available in the string handler.
+- `opts` (optional): An object with:
+    - `globals`: Global variables available in string handlers.
+    - `input`: Input descriptor — if set, the step pauses with `{ inputRequired }` when called without input.
 
 ### `step.handle(ctx, input)`
 
