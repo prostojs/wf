@@ -15,6 +15,8 @@ export interface TFlowState<T> {
     schemaId: string;
     context: T;
     indexes: number[];
+    /** Optional metadata for consumers (e.g. outlet name, retry count). Not used by the engine. */
+    meta?: Record<string, unknown>;
 }
 
 export interface TFlowSpyData<T, IR> {
