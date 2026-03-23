@@ -1,7 +1,8 @@
-import { Workflow, createStep } from './'
-import { TWorkflowSpy } from './spy'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { Workflow, createStep } from './';
+import { TWorkflowSpy } from './spy';
 
-let spyLog: string[] = []
+let spyLog: string[] = [];
 
 const spy: TWorkflowSpy<{ result: number }, unknown, unknown> = (
     event,
@@ -9,24 +10,24 @@ const spy: TWorkflowSpy<{ result: number }, unknown, unknown> = (
     result,
     ms,
 ) => {
-    let output = ''
+    let output = '';
     if (typeof val === 'object') {
-        const condVal = val as { fn: string; result: boolean }
+        const condVal = val as { fn: string; result: boolean };
         if (condVal.fn) {
             output =
-                JSON.stringify(condVal.fn) + ' -> ' + String(condVal.result)
+                JSON.stringify(condVal.fn) + ' -> ' + String(condVal.result);
         }
     } else {
-        output = JSON.stringify(val)
+        output = JSON.stringify(val);
     }
-    let _ms = ''
+    let _ms = '';
     if (typeof ms === 'number') {
-        _ms = `\t~${Math.max(1, ms)}ms`
+        _ms = `\t~${Math.max(1, ms)}ms`;
     }
     spyLog.push(
         `${'  '.repeat(result.state.indexes.length)}${event}: ${output} (result = ${result.state.context?.result})${_ms}`,
-    )
-}
+    );
+};
 
 const steps = [
     createStep<{ result: number }>('add', {
@@ -48,49 +49,52 @@ const steps = [
     createStep<{ result: number }>('pref/test', {
         handler: 'ctx.result = "prefix worked"',
     }),
-]
-const flow = new Workflow<{ result: number }, unknown>(steps)
-flow.attachSpy(spy)
-flow.register('add-mul-div', [
-    'add', 'mul', 'div',
-])
+];
+const flow = new Workflow<{ result: number }, unknown>(steps);
+flow.attachSpy(spy);
+flow.register('add-mul-div', ['add', 'mul', 'div']);
 flow.register('add-mul-div-with-inputs', [
-    { id: 'add', input: 5 }, { id: 'mul', input: 2 }, { id: 'div', input: 6 },
-])
+    { id: 'add', input: 5 },
+    { id: 'mul', input: 2 },
+    { id: 'div', input: 6 },
+]);
 flow.register('conditional', [
     { id: 'add', input: 5 },
     {
-        condition: 'result < 0', steps: [ 'error' ],
+        condition: 'result < 0',
+        steps: ['error'],
     },
     {
-        condition: 'result > 10 && result <=50', steps: [
+        condition: 'result > 10 && result <=50',
+        steps: [
             { id: 'add', input: -10 },
             { id: 'mul', input: 2 },
         ],
     },
     {
-        condition: ctx => ctx.result > 50, steps: [
+        condition: (ctx) => ctx.result > 50,
+        steps: [
             { id: 'add', input: -25 },
             { id: 'div', input: 4 },
-            { steps: [ 'add', 'add' ] },
+            { steps: ['add', 'add'] },
         ],
     },
     { id: 'mul', input: 1 },
-])
+]);
 flow.register('loop', [
     {
         while: 'result < 10',
         steps: [{ id: 'add', input: 1 }],
     },
     { id: 'mul', input: 10 },
-])
+]);
 flow.register('loop-break', [
     {
         while: 'result < 10',
         steps: [{ id: 'add', input: 1 }, { break: 'result > 5' }],
     },
     { id: 'mul', input: 10 },
-])
+]);
 flow.register('loop-continue', [
     {
         while: 'result < 10',
@@ -101,46 +105,44 @@ flow.register('loop-continue', [
         ],
     },
     { id: 'mul', input: 10 },
-])
-flow.register('with-prefix', [
-    'test',
-], 'pref')
+]);
+flow.register('with-prefix', ['test'], 'pref');
 describe('wf', () => {
     beforeEach(() => {
-        spyLog = []
-    })
+        spyLog = [];
+    });
 
     it('must respect local steps prefix', async () => {
-        const result = await flow.start('with-prefix', { result: 0 })
-        expect(result.finished).toBeTruthy()
-        expect(result.state.context.result).toBe('prefix worked')
-    })
+        const result = await flow.start('with-prefix', { result: 0 });
+        expect(result.finished).toBeTruthy();
+        expect(result.state.context.result).toBe('prefix worked');
+    });
     it('must run wf with input request', async () => {
-        const result = await flow.start('add-mul-div', { result: 1 })
-        expect(result.finished).toBeFalsy()
-        expect(result.inputRequired)
-        expect(result.inputRequired).toEqual('number')
-        expect(result.stepId).toEqual('add')
-        expect(result.resume).toBeDefined()
+        const result = await flow.start('add-mul-div', { result: 1 });
+        expect(result.finished).toBeFalsy();
+        expect(result.inputRequired);
+        expect(result.inputRequired).toEqual('number');
+        expect(result.stepId).toEqual('add');
+        expect(result.resume).toBeDefined();
         if (result.resume) {
-            const add = await result.resume(5)
-            expect(add.finished).toBeFalsy()
-            expect(add.state.context.result).toBe(6)
-            expect(add.inputRequired).toEqual('number')
-            expect(add.stepId).toEqual('mul')
-            expect(add.resume).toBeDefined()
+            const add = await result.resume(5);
+            expect(add.finished).toBeFalsy();
+            expect(add.state.context.result).toBe(6);
+            expect(add.inputRequired).toEqual('number');
+            expect(add.stepId).toEqual('mul');
+            expect(add.resume).toBeDefined();
             if (add.resume) {
-                const mul = await add.resume(2)
-                expect(mul.finished).toBeFalsy()
-                expect(mul.state.context.result).toBe(12)
-                expect(mul.inputRequired).toEqual('number')
-                expect(mul.stepId).toEqual('div')
-                expect(mul.resume).toBeDefined()
+                const mul = await add.resume(2);
+                expect(mul.finished).toBeFalsy();
+                expect(mul.state.context.result).toBe(12);
+                expect(mul.inputRequired).toEqual('number');
+                expect(mul.stepId).toEqual('div');
+                expect(mul.resume).toBeDefined();
                 if (mul.resume) {
-                    const div = await add.resume(6)
-                    expect(div.finished).toBe(true)
-                    expect(div.state.context.result).toBe(2)
-                    expect(div.inputRequired).not.toBeDefined()
+                    const div = await add.resume(6);
+                    expect(div.finished).toBe(true);
+                    expect(div.state.context.result).toBe(2);
+                    expect(div.inputRequired).not.toBeDefined();
                 }
             }
         }
@@ -161,13 +163,15 @@ describe('wf', () => {
   "  step: "div" (result = 2)	~1ms",
   "  resume-end: "add-mul-div" (result = 2)",
 ]
-`)
-    })
+`);
+    });
     it('must run wf with hardcoded inputs', async () => {
-        const result = await flow.start('add-mul-div-with-inputs', { result: 1 })
-        expect(result.finished).toBe(true)
-        expect(result.state.context.result).toBe(2)
-        expect(result.inputRequired).not.toBeDefined()
+        const result = await flow.start('add-mul-div-with-inputs', {
+            result: 1,
+        });
+        expect(result.finished).toBe(true);
+        expect(result.state.context.result).toBe(2);
+        expect(result.inputRequired).not.toBeDefined();
         expect(spyLog).toMatchInlineSnapshot(`
 [
   "  workflow-start: "add-mul-div-with-inputs" (result = 1)",
@@ -176,31 +180,31 @@ describe('wf', () => {
   "  step: "div" (result = 2)	~1ms",
   "  workflow-end: "add-mul-div-with-inputs" (result = 2)",
 ]
-`)
-    })
+`);
+    });
     it('must run wf with conditions', async () => {
-        const result = await flow.start('conditional', { result: 1 })
-        expect(result.finished).toBe(true)
-        expect(result.state.context.result).toBe(6)
-        const result2 = await flow.start('conditional', { result: 6 })
-        expect(result2.finished).toBe(true)
-        expect(result2.state.context.result).toBe(2)
-        const result3 = await flow.start('conditional', { result: 46 })
-        expect(result3.finished).toBeFalsy()
-        expect(result3.state.context.result).toBe(6.5)
-        expect(result3.inputRequired).toBeDefined()
-        expect(result3.resume).toBeDefined()
+        const result = await flow.start('conditional', { result: 1 });
+        expect(result.finished).toBe(true);
+        expect(result.state.context.result).toBe(6);
+        const result2 = await flow.start('conditional', { result: 6 });
+        expect(result2.finished).toBe(true);
+        expect(result2.state.context.result).toBe(2);
+        const result3 = await flow.start('conditional', { result: 46 });
+        expect(result3.finished).toBeFalsy();
+        expect(result3.state.context.result).toBe(6.5);
+        expect(result3.inputRequired).toBeDefined();
+        expect(result3.resume).toBeDefined();
         if (result3.resume) {
-            const result4 = await result3.resume(1.5)
-            expect(result4.finished).toBeFalsy()
-            expect(result4.state.context.result).toBe(8)
-            expect(result4.inputRequired).toBeDefined()
-            expect(result4.resume).toBeDefined()
+            const result4 = await result3.resume(1.5);
+            expect(result4.finished).toBeFalsy();
+            expect(result4.state.context.result).toBe(8);
+            expect(result4.inputRequired).toBeDefined();
+            expect(result4.resume).toBeDefined();
             if (result4.resume) {
-                const result5 = await result4.resume(2)
-                expect(result5.finished).toBe(true)
-                expect(result5.state.context.result).toBe(10)
-                expect(result5.inputRequired).not.toBeDefined()
+                const result5 = await result4.resume(2);
+                expect(result5.finished).toBe(true);
+                expect(result5.state.context.result).toBe(10);
+                expect(result5.inputRequired).not.toBeDefined();
             }
         }
         expect(spyLog).toMatchInlineSnapshot(`
@@ -253,20 +257,20 @@ describe('wf', () => {
   "  step: "mul" (result = 10)	~1ms",
   "  resume-end: "conditional" (result = 10)",
 ]
-`)
-    })
+`);
+    });
 
     it('must run wf with retriable error', async () => {
-        const result = await flow.start('conditional', { result: -10 })
-        expect(result.finished).toBeFalsy()
-        expect(result.state.context.result).toBe(-5)
-        expect(result.error).toBeDefined()
-        expect(result.retry).toBeDefined()
+        const result = await flow.start('conditional', { result: -10 });
+        expect(result.finished).toBeFalsy();
+        expect(result.state.context.result).toBe(-5);
+        expect(result.error).toBeDefined();
+        expect(result.retry).toBeDefined();
         if (result.retry) {
-            result.state.context.result = 1
-            const result2 = await result.retry()
-            expect(result2.finished).toBe(true)
-            expect(result2.state.context.result).toBe(1)
+            result.state.context.result = 1;
+            const result2 = await result.retry();
+            expect(result2.finished).toBe(true);
+            expect(result2.state.context.result).toBe(1);
         }
         expect(spyLog).toMatchInlineSnapshot(`
 [
@@ -286,12 +290,12 @@ describe('wf', () => {
   "  step: "mul" (result = 1)	~1ms",
   "  resume-end: "conditional" (result = 1)",
 ]
-`)
-    })
+`);
+    });
     it('must run wf with loops', async () => {
-        const result = await flow.start('loop', { result: 0 })
-        expect(result.finished).toBe(true)
-        expect(result.state.context.result).toBe(100)
+        const result = await flow.start('loop', { result: 0 });
+        expect(result.finished).toBe(true);
+        expect(result.state.context.result).toBe(100);
         expect(spyLog).toMatchInlineSnapshot(`
 [
   "  workflow-start: "loop" (result = 0)",
@@ -339,12 +343,12 @@ describe('wf', () => {
   "  step: "mul" (result = 100)	~1ms",
   "  workflow-end: "loop" (result = 100)",
 ]
-`)
-    })
+`);
+    });
     it('must run wf with loops and break', async () => {
-        const result = await flow.start('loop-break', { result: 0 })
-        expect(result.finished).toBe(true)
-        expect(result.state.context.result).toBe(60)
+        const result = await flow.start('loop-break', { result: 0 });
+        expect(result.finished).toBe(true);
+        expect(result.state.context.result).toBe(60);
         expect(spyLog).toMatchInlineSnapshot(`
 [
   "  workflow-start: "loop-break" (result = 0)",
@@ -381,12 +385,12 @@ describe('wf', () => {
   "  step: "mul" (result = 60)	~1ms",
   "  workflow-end: "loop-break" (result = 60)",
 ]
-`)
-    })
+`);
+    });
     it('must run wf with loops and continue', async () => {
-        const result = await flow.start('loop-continue', { result: 0 })
-        expect(result.finished).toBe(true)
-        expect(result.state.context.result).toBe(100)
+        const result = await flow.start('loop-continue', { result: 0 });
+        expect(result.finished).toBe(true);
+        expect(result.state.context.result).toBe(100);
         expect(spyLog).toMatchInlineSnapshot(`
 [
   "  workflow-start: "loop-continue" (result = 0)",
@@ -426,10 +430,10 @@ describe('wf', () => {
   "  step: "mul" (result = 100)	~1ms",
   "  workflow-end: "loop-continue" (result = 100)",
 ]
-`)
-    })
+`);
+    });
 
     afterEach(() => {
-        console.log(spyLog.join('\n'))
-    })
-})
+        console.log(spyLog.join('\n'));
+    });
+});

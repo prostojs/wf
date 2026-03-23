@@ -44,7 +44,8 @@ const steps = [
         handler: 'ctx.result = ctx.result / input',
     }),
     createStep('error', {
-        handler: 'ctx.result < 0 ? new StepRetriableError(new Error("test error")) : undefined',
+        handler:
+            'ctx.result < 0 ? new StepRetriableError(new Error("test error")) : undefined',
     }),
 ];
 
@@ -52,9 +53,7 @@ const steps = [
 const flow = new Workflow<{ result: number }>(steps);
 
 // Register a sequence of steps
-flow.register('add-mul-div', [
-    'add', 'mul', 'div',
-]);
+flow.register('add-mul-div', ['add', 'mul', 'div']);
 
 // Start a workflow
 const result = await flow.start('add-mul-div', { result: 1 });
@@ -66,7 +65,7 @@ const result = await flow.start('add-mul-div', { result: 1 });
 
 ### Step
 
-A Step represents a unit of work in a workflow. You can define a Step by providing an id and a handler function. The handler function contains the logic to be performed in the step. 
+A Step represents a unit of work in a workflow. You can define a Step by providing an id and a handler function. The handler function contains the logic to be performed in the step.
 
 ```ts
 import { Step } from '@prostojs/wf';
@@ -79,7 +78,7 @@ const step = new Step('step1', (ctx, input) => {
 
 ### Workflow
 
-A Workflow is a container for a series of steps. A Workflow is defined by providing a list of steps. Workflows can be started, and can also register sequences of steps. 
+A Workflow is a container for a series of steps. A Workflow is defined by providing a list of steps. Workflows can be started, and can also register sequences of steps.
 
 ```ts
 import { Workflow, createStep } from '@prostojs/wf';
@@ -131,10 +130,18 @@ A workflow schema in the context of this framework defines the sequence of steps
 
 ```ts
 const orderSteps = [
-    createStep('checkInventory', {/* configuration */}),
-    createStep('processPayment', {/* configuration */}),
-    createStep('packItem', {/* configuration */}),
-    createStep('shipItem', {/* configuration */}),
+    createStep('checkInventory', {
+        /* configuration */
+    }),
+    createStep('processPayment', {
+        /* configuration */
+    }),
+    createStep('packItem', {
+        /* configuration */
+    }),
+    createStep('shipItem', {
+        /* configuration */
+    }),
 ];
 
 const orderFlow = new Workflow(orderSteps);
@@ -156,11 +163,21 @@ orderFlow.register('onlineOrder', [
 
 ```ts
 const registrationSteps = [
-    createStep('validateEmail', {/* configuration */}),
-    createStep('sendConfirmationEmail', {/* configuration */}),
-    createStep('verifyConfirmation', {/* configuration */}),
-    createStep('createAccount', {/* configuration */}),
-    createStep('sendWelcomeEmail', {/* configuration */}),
+    createStep('validateEmail', {
+        /* configuration */
+    }),
+    createStep('sendConfirmationEmail', {
+        /* configuration */
+    }),
+    createStep('verifyConfirmation', {
+        /* configuration */
+    }),
+    createStep('createAccount', {
+        /* configuration */
+    }),
+    createStep('sendWelcomeEmail', {
+        /* configuration */
+    }),
 ];
 
 const registrationFlow = new Workflow(registrationSteps);
@@ -203,7 +220,7 @@ We can define these steps as follows:
 
 ```ts
 const steps = [
-    createStep<{ username: string, password: string }>('login', {
+    createStep<{ username: string; password: string }>('login', {
         input: loginInputs,
         async handler(ctx, input) {
             // Login process
@@ -237,11 +254,7 @@ AuthFlow.register('login', [
     'login',
     {
         condition: '(async () => (await user.read()).mfa.enabled)()',
-        steps: [
-            'generate-mfa',
-            'send-mfa',
-            'input-mfa',
-        ],
+        steps: ['generate-mfa', 'send-mfa', 'input-mfa'],
     },
 ]);
 ```
@@ -257,13 +270,14 @@ const loginInputs: TAuthInputMetadata[] = [
         label: 'Username (Email)',
         type: 'string',
         required: true,
-    }, {
+    },
+    {
         name: 'password',
         label: 'Password',
         type: 'password',
         required: true,
     },
-]
+];
 
 const mfaInputs: TAuthInputMetadata[] = [
     {
@@ -272,7 +286,7 @@ const mfaInputs: TAuthInputMetadata[] = [
         type: 'pin',
         required: true,
     },
-]
+];
 ```
 
 These metadata are associated with the corresponding steps as their `input` property when the steps are created. When a step is run without the required inputs, it will be interrupted, and the `inputRequired` property of the result will contain the required inputs.
@@ -283,21 +297,22 @@ When a user attempts to login, we start the `login` workflow:
 
 ```ts
 // initiate the flow
-const result = await AuthFlow.start('login', {})
+const result = await AuthFlow.start('login', {});
 if (!result.finished) {
- // respond with result.inputRequired that contains array `loginInputs`
- // save result.state somewhere (can be db, can be encrypted in token)
+    // respond with result.inputRequired that contains array `loginInputs`
+    // save result.state somewhere (can be db, can be encrypted in token)
 }
 ```
 
-If the workflow is not finished, i.e., it needs user input, we save the workflow state and send the required input fields (`result.inputRequired`) to the frontend for the user to fill in. 
+If the workflow is not finished, i.e., it needs user input, we save the workflow state and send the required input fields (`result.inputRequired`) to the frontend for the user to fill in.
 
 Once we receive the required inputs from the user, we can resume the workflow:
 
 ```ts
 // resuming flow when get inputs from user
-await AuthFlow.resume('login', result.state, input) // where input is { username, password } from user
+await AuthFlow.resume('login', result.state, input); // where input is { username, password } from user
 ```
+
 ## While Loops in Workflows
 
 Suppose we're building an email campaign that retries sending emails to users until a successful delivery or a predefined limit is reached.
@@ -306,10 +321,13 @@ Suppose we're building an email campaign that retries sending emails to users un
 flow.register('emailRetry', [
     {
         while: 'attempts < 5 && !emailSent',
-        steps: [{ id: 'sendEmail', input: 'user@email.com' }, { id: 'increaseAttempts' }],
+        steps: [
+            { id: 'sendEmail', input: 'user@email.com' },
+            { id: 'increaseAttempts' },
+        ],
     },
     { id: 'logFailure', condition: '!emailSent' },
-])
+]);
 ```
 
 In this example, the workflow will keep trying to send an email to a user up to 5 times. After 5 attempts or a successful email delivery, it will break out of the loop. If the email isn't sent successfully after all attempts, it logs the failure.
@@ -322,10 +340,14 @@ Assume we're monitoring a production machine in a factory. If the temperature of
 flow.register('machineMonitor', [
     {
         while: 'machineRunning',
-        steps: [{ id: 'checkTemperature' }, { break: 'temperature > safeLimit' }, { id: 'continueOperation' }],
+        steps: [
+            { id: 'checkTemperature' },
+            { break: 'temperature > safeLimit' },
+            { id: 'continueOperation' },
+        ],
     },
     { id: 'stopMachine', condition: 'temperature > safeLimit' },
-])
+]);
 ```
 
 In this case, we check the machine's temperature while it's running. If the temperature goes above the safe limit, we break the loop and stop the machine.
@@ -338,10 +360,14 @@ Suppose we are validating a list of data entries. If we encounter an invalid ent
 flow.register('dataValidation', [
     {
         while: 'entries.length > 0',
-        steps: [{ id: 'checkValidity' }, { continue: '!isValid' }, { id: 'processData' }],
+        steps: [
+            { id: 'checkValidity' },
+            { continue: '!isValid' },
+            { id: 'processData' },
+        ],
     },
     { id: 'logInvalidEntries', condition: 'invalidEntries.length > 0' },
-])
+]);
 ```
 
 In this example, we validate each data entry. If an entry is not valid, we skip processing it and continue to the next entry. After validating all entries, we log the invalid ones.
@@ -385,8 +411,8 @@ A shortcut for creating a workflow step.
 
 - `id`: Unique string identifier for the step.
 - `opts`: An object containing:
-  - `input` (optional): Instructions for step inputs.
-  - `handler`: A function or a string of JavaScript code that will be executed as a function during the step.
+    - `input` (optional): Instructions for step inputs.
+    - `handler`: A function or a string of JavaScript code that will be executed as a function during the step.
 
 **Returns**
 

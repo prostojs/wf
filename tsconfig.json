@@ -1,15 +1,13 @@
 {
     "compilerOptions": {
-        "baseUrl": ".",
+        "target": "ES2020",
+        "module": "ESNext",
+        "lib": ["ESNext"],
+        "declaration": true,
+        "sourceMap": true,
         "outDir": "dist",
         "moduleResolution": "node",
         "esModuleInterop": true,
-        "target": "ES2020",
-        "lib": ["ESNext"],
-        "noUnusedLocals": true,
-        "types": ["jest", "node"],
-        "declaration": false,
-        "declarationMap": false,
         "resolveJsonModule": true,
         "downlevelIteration": true,
         "forceConsistentCasingInFileNames": true,
@@ -18,9 +16,9 @@
         "skipLibCheck": true,
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true,
-        "removeComments": true
+        "removeComments": true,
+        "types": ["node"]
     },
-    "include": [
-        "src"
-    ]
+    "include": ["src/**/*.ts", "vitest.config.ts"],
+    "exclude": ["node_modules"]
 }

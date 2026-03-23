@@ -1,0 +1,18 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": ["typescript"],
+    "categories": {
+        "correctness": "error",
+        "suspicious": "warn"
+    },
+    "rules": {
+        "typescript/explicit-function-return-type": "off",
+        "typescript/no-empty-interface": "off",
+        "typescript/no-inferrable-types": "off",
+        "typescript/explicit-module-boundary-types": "off",
+        "typescript/no-implied-eval": "off",
+        "typescript/no-this-alias": "warn",
+        "no-debugger": "warn"
+    },
+    "ignorePatterns": ["scripts/*", "dist/*"]
+}
