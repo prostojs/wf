@@ -98,7 +98,7 @@ async function main() {
 
     step('Running tests...');
     if (!skipTests && !isDryRun) {
-        run('npm', ['test', '--', '--bail']);
+        run('npm', ['test']);
     } else {
         info('(skipped)');
     }
