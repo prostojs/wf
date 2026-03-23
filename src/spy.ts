@@ -1,4 +1,4 @@
-import { TFlowOutput, TWorkflowStepConditionFn } from './types';
+import { TFlowSpyData, TWorkflowStepConditionFn } from './types';
 
 export type TWorkflowSpy<T, I, IR> = (
     event: string,
@@ -6,6 +6,6 @@ export type TWorkflowSpy<T, I, IR> = (
         | string
         | undefined
         | { fn: string | TWorkflowStepConditionFn<T>; result: boolean },
-    flowOutput: TFlowOutput<T, I, IR>,
+    flowOutput: TFlowSpyData<T, IR>,
     ms?: number,
 ) => void;

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export type TStepOutput<IR> = void | {
     inputRequired: IR;
     expires?: number;
@@ -12,23 +11,63 @@ export type TStepHandler<T, I, IR> = (
     | StepRetriableError<IR>
     | Promise<TStepOutput<IR> | StepRetriableError<IR>>;
 
-export interface TFlowOutput<T, I, IR> {
-    state: {
-        schemaId: string;
-        context: T;
-        indexes: number[];
-    };
+export interface TFlowState<T> {
+    schemaId: string;
+    context: T;
+    indexes: number[];
+}
+
+export interface TFlowSpyData<T, IR> {
+    state: TFlowState<T>;
     finished: boolean;
+    stepId: string;
     inputRequired?: IR;
     interrupt?: boolean;
-    break?: boolean;
-    stepId: string;
-    resume?: (input: I) => Promise<TFlowOutput<T, unknown, IR>>;
-    retry?: (input?: I) => Promise<TFlowOutput<T, unknown, IR>>;
     error?: Error;
     expires?: number;
     errorList?: unknown;
 }
+
+export interface TFlowFinished<T, IR> {
+    finished: true;
+    state: TFlowState<T>;
+    stepId: string;
+    resume?: never;
+    retry?: never;
+    error?: never;
+    inputRequired?: never;
+    expires?: never;
+    errorList?: never;
+}
+
+export interface TFlowPaused<T, I, IR> {
+    finished: false;
+    state: TFlowState<T>;
+    stepId: string;
+    inputRequired: IR;
+    resume: (input: I) => Promise<TFlowOutput<T, unknown, IR>>;
+    expires?: number;
+    errorList?: unknown;
+    error?: never;
+    retry?: never;
+}
+
+export interface TFlowFailed<T, I, IR> {
+    finished: false;
+    state: TFlowState<T>;
+    stepId: string;
+    error: Error;
+    retry: (input?: I) => Promise<TFlowOutput<T, unknown, IR>>;
+    inputRequired?: IR;
+    expires?: number;
+    errorList?: unknown;
+    resume?: never;
+}
+
+export type TFlowOutput<T, I, IR> =
+    | TFlowFinished<T, IR>
+    | TFlowPaused<T, I, IR>
+    | TFlowFailed<T, I, IR>;
 
 export type TWorkflowStepConditionFn<T> = (
     ctx: T,
