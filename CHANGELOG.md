@@ -1,3 +1,12 @@
+## [0.1.1](https://github.com/prostojs/wf/compare/v0.1.0...v0.1.1) (2026-03-23)
+
+
+### Features
+
+* add optional meta field to TFlowState for consumer metadata ([ef84357](https://github.com/prostojs/wf/commit/ef84357fc0d6affee5e90776c5445c07cfd3012d))
+
+
+
 # [0.1.0](https://github.com/prostojs/wf/compare/v0.0.18...v0.1.0) (2026-03-23)
 
 
