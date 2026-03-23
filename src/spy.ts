@@ -1,6 +1,6 @@
 import { TFlowSpyData, TWorkflowStepConditionFn } from './types';
 
-export type TWorkflowSpy<T, I, IR> = (
+export type TWorkflowSpy<T, _I, IR> = (
     event: string,
     eventOutput:
         | string

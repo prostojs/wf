@@ -42,8 +42,8 @@ export class Step<T, I, IR> {
         if (!this._handler) {
             if (typeof this.handler === 'string') {
                 const code = this.handler;
-                this._handler = (ctx: T, input: I) =>
-                    fnPool.call(code, this.getGlobals(ctx, input));
+                this._handler = (c: T, i: I) =>
+                    fnPool.call(code, this.getGlobals(c, i));
             } else {
                 this._handler = this.handler;
             }

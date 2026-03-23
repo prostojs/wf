@@ -134,14 +134,14 @@ export class Workflow<T, IR> {
         ms?: number,
     ) {
         if (!spy && this.spies.length === 0) return;
-        runSpy(spy);
-        for (const spy of this.spies) {
-            runSpy(spy);
+        callSpy(spy);
+        for (const s of this.spies) {
+            callSpy(s);
         }
-        function runSpy(spy: TWorkflowSpy<T, any, IR> | undefined) {
-            if (spy) {
+        function callSpy(fn: TWorkflowSpy<T, any, IR> | undefined) {
+            if (fn) {
                 try {
-                    spy(event, eventOutput, flowOutput, ms);
+                    fn(event, eventOutput, flowOutput, ms);
                 } catch (e) {
                     console.error(
                         (e as Error).message ||

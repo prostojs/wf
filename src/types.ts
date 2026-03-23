@@ -28,7 +28,7 @@ export interface TFlowSpyData<T, IR> {
     errorList?: unknown;
 }
 
-export interface TFlowFinished<T, IR> {
+export interface TFlowFinished<T, _IR> {
     finished: true;
     state: TFlowState<T>;
     stepId: string;
