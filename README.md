@@ -400,9 +400,13 @@ return outletEmail('user@test.com', 'invite', { name: 'Alice' });
 
 ### State Strategies
 
-Two built-in strategies for persisting workflow state between round-trips:
+Two built-in strategies for persisting workflow state between round-trips.
+**Choose based on whether your flow is security-sensitive.** See the security
+note at the end of this section.
 
-**EncapsulatedStateStrategy** — self-contained AES-256-GCM encrypted tokens. No server storage needed. Good for HTTP cookies and URL params.
+**EncapsulatedStateStrategy** — self-contained AES-256-GCM encrypted tokens. No
+server storage needed. Appropriate for **idempotent, non-sensitive** flows
+(multi-step forms, data collection). See security warning below.
 
 ```ts
 import { randomBytes } from 'node:crypto';
@@ -416,7 +420,9 @@ const token = await strategy.persist(result.state);  // encrypted base64url stri
 const state = await strategy.retrieve(token);         // null if expired/tampered
 ```
 
-**HandleStateStrategy** — server-side storage with short handles. Supports single-use tokens via `consume()`.
+**HandleStateStrategy** — server-side storage with short opaque handles. Supports
+true single-use tokens via atomic `consume()`. **Required for security-sensitive
+flows** (auth, password reset, invite accept, financial operations).
 
 ```ts
 const strategy = new HandleStateStrategy({
@@ -425,8 +431,25 @@ const strategy = new HandleStateStrategy({
 });
 
 const handle = await strategy.persist(result.state);
-const state = await strategy.consume(handle);  // retrieves then deletes (single-use)
+const state = await strategy.consume(handle);  // atomic retrieve + delete (single-use)
 ```
+
+#### Security note — token replay
+
+A workflow resumption token lets the holder re-execute the workflow from the
+paused step. Any token that stays valid after use is a replay vector for
+whoever can copy it (browser history, logs, proxies, shared devices).
+
+- `HandleStateStrategy.consume()` atomically deletes the handle — truly
+  single-use, race-safe via the store's `getAndDelete`.
+- `EncapsulatedStateStrategy.consume()` is a stateless no-op. A copy of the
+  token remains valid for the full TTL. This strategy CANNOT enforce
+  single-use.
+
+**Use `EncapsulatedStateStrategy` only when every step is idempotent and the
+flow carries no security impact.** For anything else — credential changes,
+financial actions, account provisioning, anything with real-world side
+effects — use `HandleStateStrategy` backed by a durable `WfStateStore`.
 
 ### Custom Outlets
 
