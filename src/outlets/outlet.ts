@@ -25,4 +25,24 @@ export interface WfOutlet {
         request: WfOutletRequest,
         token: string,
     ): Promise<WfOutletResult | void>;
+
+    /**
+     * How the resumption token reaches the resumer.
+     *
+     * - `"caller"` (default) — the HTTP caller who triggered the pause is also
+     *   the resumer (e.g. HTTP form step, multi-step wizard). The trigger layer
+     *   is allowed to include the token in the HTTP response (body merge or
+     *   `Set-Cookie`) so the caller can submit the next step.
+     *
+     * - `"out-of-band"` — the token travels through the outlet's own channel
+     *   (email magic link, SMS OTP, Slack button, webhook callback). The
+     *   caller who triggered the pause is a bystander — they MUST NOT receive
+     *   the token in the HTTP response. Trigger-layer body merge and cookie
+     *   write are suppressed for this outlet.
+     *
+     * Omitting this field is equivalent to `"caller"` and is only appropriate
+     * for same-session continuation outlets. Any outlet that delivers to a
+     * different principal than the caller MUST declare `"out-of-band"`.
+     */
+    readonly tokenDelivery?: 'caller' | 'out-of-band';
 }
