@@ -1,3 +1,12 @@
+# [0.2.0](https://github.com/prostojs/wf/compare/v0.1.1...v0.2.0) (2026-04-21)
+
+
+### Features
+
+* **outlets:** add tokenDelivery field to WfOutlet interface ([dd4a6cf](https://github.com/prostojs/wf/commit/dd4a6cf01f820ceb482b9711347403c99f302bf7))
+
+
+
 ## [0.1.1](https://github.com/prostojs/wf/compare/v0.1.0...v0.1.1) (2026-03-23)
 
 
