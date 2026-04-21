@@ -17,6 +17,29 @@ export interface EncapsulatedStateConfig {
  *
  * Token format: `base64url(iv[12] + authTag[16] + ciphertext)`
  *
+ * ## Security warning — replay
+ *
+ * This strategy is STATELESS. It cannot enforce single-use semantics:
+ * `consume()` is a no-op alias for `retrieve()` because there is no
+ * server-side record to delete. Anyone who obtains a copy of the token
+ * (browser history, server logs, shoulder-surfing, intermediate proxy,
+ * shared device) can replay it until the TTL expires.
+ *
+ * Use `EncapsulatedStateStrategy` ONLY when BOTH of the following hold:
+ *
+ * 1. Every workflow step is idempotent — re-executing a step with the same
+ *    input produces no harmful side effects (pure data collection,
+ *    validation-only steps).
+ * 2. The flow is not security-sensitive — no credential changes, financial
+ *    operations, account provisioning, permission grants, or any other
+ *    privileged action.
+ *
+ * For auth flows (login, password reset, invite accept), financial
+ * operations, or anything with meaningful side effects, use
+ * `HandleStateStrategy` with a durable `WfStateStore`. `HandleStateStrategy`
+ * supports true single-use tokens via atomic `getAndDelete` at the store
+ * layer.
+ *
  * @example
  * const strategy = new EncapsulatedStateStrategy({
  *     secret: crypto.randomBytes(32),
@@ -69,7 +92,14 @@ export class EncapsulatedStateStrategy implements WfStateStrategy {
         return this.decrypt(token);
     }
 
-    /** Same as retrieve (stateless — cannot truly invalidate a token). */
+    /**
+     * Stateless — CANNOT invalidate the token. Returns identical result to
+     * `retrieve()`. See the class-level security warning.
+     *
+     * This method exists only to satisfy the `WfStateStrategy` contract.
+     * Callers that need true single-use semantics must use
+     * `HandleStateStrategy`.
+     */
     async consume(token: string): Promise<WfState | null> {
         // Stateless — cannot invalidate. Same as retrieve.
         return this.decrypt(token);
