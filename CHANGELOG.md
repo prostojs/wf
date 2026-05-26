@@ -1,3 +1,12 @@
+## [0.2.1](https://github.com/prostojs/wf/compare/v0.2.0...v0.2.1) (2026-05-26)
+
+
+### Features
+
+* **state:** allow handle override on WfStateStrategy.persist for stable resumption tokens ([7d4ea6c](https://github.com/prostojs/wf/commit/7d4ea6c27d4d25dbd7d06c043e65ec1242a61814))
+
+
+
 # [0.2.0](https://github.com/prostojs/wf/compare/v0.1.1...v0.2.0) (2026-04-21)
 
 
