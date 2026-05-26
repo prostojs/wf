@@ -66,11 +66,21 @@ export class EncapsulatedStateStrategy implements WfStateStrategy {
 
     /**
      * Encrypt workflow state into a self-contained token.
+     *
+     * NOTE: the `overrides.handle` hint from `WfStateStrategy` is silently
+     * ignored — the encapsulated token IS the ciphertext of the state, so a
+     * fixed handle cannot map to changing state. Callers that need handle
+     * stability across calls must use `HandleStateStrategy`.
+     *
      * @param state — workflow state to persist
      * @param options.ttl — time-to-live in ms (overrides defaultTtl)
      * @returns base64url-encoded encrypted token
      */
-    async persist(state: WfState, options?: { ttl?: number }): Promise<string> {
+    async persist(
+        state: WfState,
+        options?: { ttl?: number },
+        _overrides?: { handle?: string },
+    ): Promise<string> {
         const ttl = options?.ttl ?? this.config.defaultTtl ?? 0;
         const exp = ttl > 0 ? Date.now() + ttl : 0;
         const payload = JSON.stringify({ s: state, e: exp });

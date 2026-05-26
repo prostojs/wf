@@ -1,7 +1,7 @@
 import type { TStepOutput } from '../types';
 import type { WfOutletRequest } from './types';
 
-type WfOutletSignal<P> = NonNullable<TStepOutput<WfOutletRequest<P>>>;
+type WfOutletSignal<P> = Exclude<TStepOutput<WfOutletRequest<P>>, void>;
 
 /**
  * Generic outlet request. Use for custom outlets.

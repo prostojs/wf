@@ -15,8 +15,13 @@ export interface HandleStateConfig {
 export class HandleStateStrategy implements WfStateStrategy {
     constructor(private config: HandleStateConfig) {}
 
-    async persist(state: WfState, options?: { ttl?: number }): Promise<string> {
-        const handle = (this.config.generateHandle ?? randomUUID)();
+    async persist(
+        state: WfState,
+        options?: { ttl?: number },
+        overrides?: { handle?: string },
+    ): Promise<string> {
+        const handle =
+            overrides?.handle ?? (this.config.generateHandle ?? randomUUID)();
         const ttl = options?.ttl ?? this.config.defaultTtl ?? 0;
         const expiresAt = ttl > 0 ? Date.now() + ttl : undefined;
         await this.config.store.set(handle, state, expiresAt);

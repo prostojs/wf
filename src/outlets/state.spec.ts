@@ -85,6 +85,23 @@ describe('EncapsulatedStateStrategy', () => {
         const token = await s.persist(testState);
         expect(await s.retrieve(token)).toEqual(testState);
     });
+
+    it('persist with handle hint returns a fresh encrypted token (NOT the hint)', async () => {
+        const token = await strategy.persist(testState, undefined, {
+            handle: 'fixed-hint',
+        });
+        expect(token).not.toBe('fixed-hint');
+        // Token must still be a valid base64url encrypted blob
+        expect(token.length).toBeGreaterThan(20);
+    });
+
+    it('persist with handle hint still round-trips via retrieve', async () => {
+        const token = await strategy.persist(testState, undefined, {
+            handle: 'fixed-hint',
+        });
+        const retrieved = await strategy.retrieve(token);
+        expect(retrieved).toEqual(testState);
+    });
 });
 
 describe('HandleStateStrategy', () => {
@@ -146,6 +163,88 @@ describe('HandleStateStrategy', () => {
         const handle = await ttlStrategy.persist(testState);
         await new Promise((r) => setTimeout(r, 10));
         expect(await ttlStrategy.retrieve(handle)).toBeNull();
+    });
+
+    it('persist with handle override stores under that exact handle and returns it', async () => {
+        const returned = await strategy.persist(testState, undefined, {
+            handle: 'fixed',
+        });
+        expect(returned).toBe('fixed');
+        expect(await strategy.retrieve('fixed')).toEqual(testState);
+    });
+
+    it('persist with handle override overwrites a prior entry at the same key', async () => {
+        await strategy.persist(testState, undefined, { handle: 'reuse' });
+        const next: WfState = {
+            schemaId: 'test-flow',
+            context: { result: 99 },
+            indexes: [5],
+        };
+        await strategy.persist(next, undefined, { handle: 'reuse' });
+        expect(await strategy.retrieve('reuse')).toEqual(next);
+    });
+
+    it('persist with handle override recomputes expiresAt from options.ttl (sliding TTL)', async () => {
+        // First write — no expiry
+        await strategy.persist(testState, undefined, { handle: 'sliding' });
+        const before = await store.get('sliding');
+        expect(before?.expiresAt).toBeUndefined();
+
+        // Re-persist with a finite TTL — expiresAt should now be set
+        await strategy.persist(testState, { ttl: 60_000 }, { handle: 'sliding' });
+        const after = await store.get('sliding');
+        expect(after?.expiresAt).toBeGreaterThan(Date.now());
+    });
+
+    it('persist with handle override works after consume of the same handle', async () => {
+        // Mimic the downstream engine's stable-token flow:
+        // consume (deletes) → re-persist under the same handle (re-creates).
+        const handle = await strategy.persist(testState);
+        const consumed = await strategy.consume(handle);
+        expect(consumed).toEqual(testState);
+        expect(await strategy.retrieve(handle)).toBeNull();
+
+        const next: WfState = {
+            schemaId: 'test-flow',
+            context: { result: 7 },
+            indexes: [3, 0],
+        };
+        const returned = await strategy.persist(next, undefined, { handle });
+        expect(returned).toBe(handle);
+        expect(await strategy.retrieve(handle)).toEqual(next);
+    });
+
+    it('persist without overrides still mints via generateHandle (regression guard)', async () => {
+        let counter = 0;
+        const custom = new HandleStateStrategy({
+            store,
+            generateHandle: () => `auto-${++counter}`,
+        });
+        const h1 = await custom.persist(testState);
+        const h2 = await custom.persist(testState);
+        expect(h1).toBe('auto-1');
+        expect(h2).toBe('auto-2');
+    });
+
+    it('persist with handle override overwrites an unrelated existing entry (documents the contract)', async () => {
+        // Caller-supplied handles overwrite ANY entry at that key, including
+        // ones unrelated to the caller. This is why handle entropy is the
+        // caller's responsibility (see WfStateStrategy.persist jsdoc).
+        const victim: WfState = {
+            schemaId: 'test-flow',
+            context: { owner: 'victim' },
+            indexes: [0],
+        };
+        await strategy.persist(victim, undefined, { handle: 'collision' });
+
+        const attacker: WfState = {
+            schemaId: 'test-flow',
+            context: { owner: 'attacker' },
+            indexes: [0],
+        };
+        await strategy.persist(attacker, undefined, { handle: 'collision' });
+
+        expect(await strategy.retrieve('collision')).toEqual(attacker);
     });
 });
 
