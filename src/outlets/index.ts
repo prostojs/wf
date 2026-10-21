@@ -1,8 +1,11 @@
 export * from './types';
 export * from './outlet';
 export * from './helpers';
+export * from './mint';
 export * from './state/strategy';
 export * from './state/encapsulated';
 export * from './state/handle';
 export * from './state/store';
 export * from './state/memory';
+export { resolveExpiresAt } from './state/ttl';
+export type { WfPersistOptions } from './state/ttl';

@@ -1,6 +1,17 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import type { WfState } from '../types';
-import type { WfStateStrategy } from './strategy';
+import {
+    consumeViaOverride,
+    isOverridden,
+    persistViaOverride,
+} from './override';
+import type {
+    WfConsumedEntry,
+    WfPersistedEntry,
+    WfStateStrategy,
+} from './strategy';
+import { resolveExpiresAt } from './ttl';
+import type { WfPersistOptions } from './ttl';
 
 export interface EncapsulatedStateConfig {
     /** Encryption secret — 32 bytes as hex string or Buffer */
@@ -74,15 +85,35 @@ export class EncapsulatedStateStrategy implements WfStateStrategy {
      *
      * @param state — workflow state to persist
      * @param options.ttl — time-to-live in ms (overrides defaultTtl)
+     * @param options.expiresAt — absolute expiry (ms timestamp, 0 = never);
+     *                            the earlier of `ttl`/`expiresAt` wins
      * @returns base64url-encoded encrypted token
      */
     async persist(
         state: WfState,
-        options?: { ttl?: number },
+        options?: WfPersistOptions,
         _overrides?: { handle?: string },
     ): Promise<string> {
-        const ttl = options?.ttl ?? this.config.defaultTtl ?? 0;
-        const exp = ttl > 0 ? Date.now() + ttl : 0;
+        return this.encrypt(state, options).token;
+    }
+
+    /** `persist()` plus the expiry applied. See `WfStateStrategy.persistEntry`. */
+    async persistEntry(
+        state: WfState,
+        options?: WfPersistOptions,
+        overrides?: { handle?: string },
+    ): Promise<WfPersistedEntry> {
+        if (isOverridden(this, EncapsulatedStateStrategy, 'persist')) {
+            return persistViaOverride(this, state, options, overrides);
+        }
+        return this.encrypt(state, options);
+    }
+
+    private encrypt(
+        state: WfState,
+        options: WfPersistOptions | undefined,
+    ): WfPersistedEntry {
+        const exp = resolveExpiresAt(options, this.config.defaultTtl) ?? 0;
         const payload = JSON.stringify({ s: state, e: exp });
 
         const iv = randomBytes(12);
@@ -94,12 +125,13 @@ export class EncapsulatedStateStrategy implements WfStateStrategy {
         const tag = cipher.getAuthTag();
 
         // Format: base64url(iv + tag + ciphertext)
-        return Buffer.concat([iv, tag, encrypted]).toString('base64url');
+        const token = Buffer.concat([iv, tag, encrypted]).toString('base64url');
+        return { token, expiresAt: exp };
     }
 
     /** Decrypt and return workflow state. Returns null if token is invalid, expired, or tampered. */
     async retrieve(token: string): Promise<WfState | null> {
-        return this.decrypt(token);
+        return this.decrypt(token)?.state ?? null;
     }
 
     /**
@@ -112,10 +144,18 @@ export class EncapsulatedStateStrategy implements WfStateStrategy {
      */
     async consume(token: string): Promise<WfState | null> {
         // Stateless — cannot invalidate. Same as retrieve.
+        return this.decrypt(token)?.state ?? null;
+    }
+
+    /** `consume()` plus the token's expiry; stateless (the token stays valid). See `WfStateStrategy.consumeEntry`. */
+    async consumeEntry(token: string): Promise<WfConsumedEntry | null> {
+        if (isOverridden(this, EncapsulatedStateStrategy, 'consume')) {
+            return consumeViaOverride(this, token);
+        }
         return this.decrypt(token);
     }
 
-    private decrypt(token: string): WfState | null {
+    private decrypt(token: string): WfConsumedEntry | null {
         try {
             const buf = Buffer.from(token, 'base64url');
             if (buf.length < 28) return null; // 12 (iv) + 16 (tag) minimum
@@ -134,7 +174,7 @@ export class EncapsulatedStateStrategy implements WfStateStrategy {
             const { s: state, e: exp } = JSON.parse(decrypted.toString('utf8'));
             if (exp > 0 && Date.now() > exp) return null; // expired
 
-            return state as WfState;
+            return { state: state as WfState, expiresAt: exp > 0 ? exp : 0 };
         } catch {
             return null; // tampered, corrupted, or wrong key
         }

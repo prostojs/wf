@@ -381,6 +381,7 @@ Workflow outlets deliver pauses to the outside world (HTTP forms, emails, pendin
 ```ts
 import { outlet, outletHttp, outletEmail } from '@prostojs/wf/outlets';
 import { EncapsulatedStateStrategy, HandleStateStrategy, WfStateStoreMemory } from '@prostojs/wf/outlets';
+import { mintWfStateToken, hashWfHandle, resolveExpiresAt } from '@prostojs/wf/outlets';
 ```
 
 ### Step Helpers
@@ -434,6 +435,257 @@ const handle = await strategy.persist(result.state);
 const state = await strategy.consume(handle);  // atomic retrieve + delete (single-use)
 ```
 
+`persist()` takes `{ ttl }` (ms from now, overrides `defaultTtl`; a
+non-positive or non-finite value means "never expires") and/or `{ expiresAt }`
+(absolute ms timestamp, `0` = never; `defaultTtl` is then not applied). With
+both, the **earlier** expiry wins, so combining them can only shorten a
+lifetime. An invalid `expiresAt` (negative, `NaN`, infinite) throws a
+`TypeError` before anything is written. The exported
+`resolveExpiresAt(options, defaultTtl, now?)` applies these rules for custom
+strategies.
+
+#### Expiry-aware persist and consume (`persistEntry` / `consumeEntry`)
+
+Both built-in strategies have entry variants that also report the absolute
+expiry (`0` = never expires, `undefined` = unknown):
+
+- `persistEntry(state, options?, overrides?)` → `{ token, expiresAt }`: the
+  expiry `persist()` applied.
+- `consumeEntry(token)` → `{ state, expiresAt }` or `null`: `consume()` with
+  exactly the same atomicity, plus the token's expiry.
+
+Together they put a consumed state back without extending its lifetime, for
+example when a step fails and the user should be able to retry with the same
+link:
+
+```ts
+const entry = await strategy.consumeEntry(token);
+if (!entry) return gone();
+try {
+    await runStep(entry.state);
+} catch (error) {
+    // Restore ONLY when the expiry is known.
+    if (entry.expiresAt !== undefined) {
+        await strategy.persistEntry(
+            entry.state,
+            { expiresAt: entry.expiresAt },
+            { handle: token },
+        );
+    }
+    throw error;
+}
+```
+
+- Never substitute a value for an unknown expiry (`?? 0` would make the token
+  permanent). The expiry is unknown for entries written by 0.2.x (unless the
+  store returns a bound), for stores that drop `state.meta`, and when a
+  subclass overrides `consume()`.
+- `HandleStateStrategy` records the expiry it applied inside the persisted
+  state (under the reserved `state.meta.__wfExpiry`, removed again on every
+  read), so it knows the expiry even when your store leaves expiry to its
+  backend (Redis `PX`, a MongoDB TTL index) and returns only `{ state }`.
+- `persistEntry` is the signal that a strategy **honours `expiresAt`**. Both
+  entry methods are optional on `WfStateStrategy`; a strategy without
+  `persistEntry` (e.g. one written against 0.2.x) may read only `ttl`, so pass
+  it a `ttl` instead (`mintWfStateToken` does this automatically).
+- Subclasses: if you override `consume()` or `persist()`, the entry variant
+  delegates to your override and reports the expiry as unknown (`persistEntry`
+  then passes `expiresAt` folded into a `ttl`). Call `super.consume()` /
+  `super.persist()` from the override, never the entry variants.
+- `EncapsulatedStateStrategy.consumeEntry()` returns the expiry its token
+  carries and, like `consume()`, does not invalidate the token.
+
+#### Hashing handles at rest (`hashHandles`)
+
+By default `HandleStateStrategy` uses the handle itself as the store key, so
+anyone who can read the store (a backup, a replica, a log, an injection) holds
+live resumption tokens. Turn on `hashHandles` to store a hash instead:
+
+```ts
+const strategy = new HandleStateStrategy({
+    store,
+    defaultTtl: 3600_000,
+    hashHandles: true, // or { secret: process.env.WF_HANDLE_PEPPER }
+});
+```
+
+- The client still receives the raw handle; the store only ever sees
+  `hashWfHandle(handle, secret?)`: `wfh1_` + base64url(SHA-256), or `wfk1_` +
+  base64url(HMAC-SHA-256) with a secret — a 48-character string.
+- New handles: with hashing on, the default generator issues 22 base64url
+  characters (128 random bits) that never contain `wfh`/`wfk`, instead of a
+  UUID. This shape never takes the raw-key fallback below, so it costs no
+  extra lookups. With hashing off, handles stay UUIDs. Do not rely on the
+  shape of a handle; treat it as an opaque string.
+- `true` uses plain SHA-256. That is safe for the default handles (128 random
+  bits): nobody can recover a handle from its hash. Pass `{ secret }` (HMAC) when a custom `generateHandle` produces
+  guessable handles. Changing the secret invalidates every in-flight handle.
+  A `secret` property that is present but `undefined` or empty (an unset
+  environment variable) throws instead of silently falling back to SHA-256.
+- The store must compare keys exactly (see
+  [Implementing a `WfStateStore`](#implementing-a-wfstatestore), rule 5), and
+  a key column typed as UUID must become text or binary.
+- A hashed key read from the store is never accepted as a token.
+- Default: off. Turn it on for every instance at once; a flow paused on an
+  instance with hashing cannot be resumed on one without it.
+
+**Upgrade (raw-key fallback).** When the hashed key misses, the strategy also
+looks the token up under its raw key, so handles issued before you turned
+`hashHandles` on keep working; re-persisting such a handle moves it to the
+hashed key. The fallback only applies to tokens positively shaped like a
+pre-upgrade handle:
+
+- with the default `generateHandle`: a strict lowercase UUID v4 (what 0.2.x
+  issued);
+- with a custom `generateHandle`: whatever `hashHandles.legacyHandle(token)`
+  accepts. Without `legacyHandle` the fallback is off (fails closed), and
+  `rawFallback: true` without it throws. An explicit `generateHandle` counts
+  as custom even if it is `randomUUID`.
+- Never for tokens that are not printable ASCII (`/^[\x21-\x7e]+$/`: no
+  whitespace, accents or compatibility characters) or that contain `wfh` /
+  `wfk` in any case. `legacyHandle` is only ever called with tokens that pass
+  this check.
+
+```ts
+hashHandles: {
+    legacyHandle: (t) => /^[0-9a-f]{32}$/.test(t), // the shape your generator issued
+}
+```
+
+`hashHandles: { rawFallback: false }` turns the fallback off. It exists in
+**0.3.x only: 0.4.0 removes it** (and `legacyHandle`), after which pre-upgrade
+handles no longer resolve. Turn `hashHandles` on at least one full TTL before
+upgrading to 0.4.0.
+
+#### Minting a token without a request (`mintWfStateToken`)
+
+For server-initiated flows (invites, approval requests, admin-issued links),
+start the workflow headlessly and get its resumption token back:
+
+```ts
+import { mintWfStateToken } from '@prostojs/wf/outlets';
+
+const { token, expiresAt } = await mintWfStateToken(workflow, {
+    strategy, // HandleStateStrategy, ideally with hashHandles
+    schemaId: 'invite',
+    context: { email: 'new.user@example.com' },
+    ttl: 7 * 24 * 3600_000,
+});
+if (token) await sendInviteEmail(`https://app.example.com/invite?wfs=${token}`);
+```
+
+- The first argument is anything with `start(schemaId, context, input?)`, such
+  as a `Workflow`.
+- `token` is set only when the flow paused (asked for input); a flow that
+  finishes right away yields `token: undefined` and persists nothing. If the
+  flow, the `meta` function or the strategy picker throws, nothing is
+  persisted and the error propagates.
+- Expiry: the **earlier** of `ttl` and the `expires` the pausing step
+  returned; with neither, the strategy's `defaultTtl`. `ttl: 0` means "never"
+  (and loses to a step's `expires`); a negative, `NaN` or infinite `ttl`
+  throws a `TypeError` before the flow runs.
+- A strategy with `persistEntry` gets `{ ttl, expiresAt }` and the result's
+  `expiresAt` is the absolute expiry it applied (`0` = never). A strategy
+  without it receives the earlier bound as a `ttl` (at least 1 ms, so a bound
+  already past means "expired now"), and the result's `expiresAt` is
+  `undefined`.
+- `meta` (object, or a function of `{ inputRequired, output }`) is merged into
+  `state.meta`; `strategy` may be a function that picks the strategy from the
+  pause request.
+- No outlet is called: you deliver the token. The token is always freshly
+  minted, never a caller-chosen handle.
+- The token is the strategy's raw token. A token that must resume through a
+  `@wooksjs/event-wf` outlet trigger also needs the strategy-name prefix that
+  trigger expects; wooks will provide a wrapper for that.
+
+#### Implementing a `WfStateStore`
+
+A production store must follow the contract documented on `WfStateStore`.
+Breaking it breaks single-use tokens or hashing at rest:
+
+1. **`getAndDelete` is atomic**: among concurrent calls for the same key
+   exactly one gets the entry. A `get` followed by a `delete` is not atomic,
+   even in one process (any `await` in between lets a second caller in). Use
+   one atomic operation: `DELETE ... RETURNING` (PostgreSQL, SQLite), `GETDEL`
+   (Redis), `findOneAndDelete` (MongoDB), or a row-locking transaction.
+2. **`get` is side-effect free**: it never deletes, extends or changes a live
+   entry (dropping an already-expired one is fine).
+3. **Expired entries are never returned** (`Date.now() > expiresAt`).
+   `HandleStateStrategy` re-checks the expiry, but a store that hands out
+   expired entries from `getAndDelete` still loses single use for them. A
+   backend-TTL store must also accept an `expiresAt` already in the past.
+4. **`set` overwrites** the entry and its expiry.
+5. **Keys compare exactly**: binary, case-sensitive, no padding, no Unicode
+   normalisation.
+   - MySQL/MariaDB: `VARBINARY(64)`, or `VARCHAR(64) COLLATE utf8mb4_0900_bin`
+     (NO PAD). Not the default `*_ci` collations, and not `utf8mb4_bin`, which
+     is PAD SPACE.
+   - SQL Server: a `VARBINARY(64)` key column. `(n)varchar` ignores trailing
+     spaces in `=` under every collation, and the default collations are
+     case-insensitive; at minimum use a `_BIN2` collation.
+   - PostgreSQL: `text`/`varchar` with a deterministic collation (the
+     default, or `COLLATE "C"`); not `citext` or a nondeterministic ICU
+     collation.
+6. **`expiresAt` is echoed exactly or not at all**: if `get`/`getAndDelete`
+   return `expiresAt`, it is the value given to `set`.
+7. **The state round-trips, including `state.meta`** (JSON is fine).
+   `HandleStateStrategy` keeps the expiry it applied there; a store that drops
+   `meta` makes consumed tokens unrestorable.
+
+Check your store with the bundled, framework-agnostic contract check:
+
+```ts
+import { checkWfStateStoreContract } from '@prostojs/wf/testing';
+
+it('MyStore meets the WfStateStore contract', async () => {
+    expect(await checkWfStateStoreContract(() => new MyStore(db))).toEqual([]);
+});
+```
+
+It returns the list of violations. Every check uses fresh random 48-character
+keys and deletes them in a `finally`, so it can run against a shared test
+database. Object key order is ignored when comparing states (jsonb columns
+that reorder keys pass). Limits: the atomicity check fires concurrent calls
+from one process only, so it cannot prove atomicity across processes — that
+comes from the backend operation you use. The expiry probe stores a
+short-lived entry, reads it several times during its lifetime (to catch a
+`get()` that slides the expiry), and checks that it is gone afterwards. It
+waits about `expiryProbeMs` of real time (default 1000 ms), so run it with
+real timers. The probe measures the store's round trip and stretches itself
+to at least 10× that, so network latency does not read as a violation. For
+backends with coarse expiry resolution (second-granularity TTLs, a background
+sweeper) or clock skew between app and database, raise `expiryProbeMs`
+accordingly, e.g. `checkWfStateStoreContract(make, { expiryProbeMs: 3000 })`.
+
+`WfStateStoreMemory` meets this contract within one process (dev and tests
+only; state is lost on restart and not shared between instances).
+
+#### Upgrading to 0.3.0
+
+- [ ] **Custom stores:** run `checkWfStateStoreContract` (see
+  [Implementing a `WfStateStore`](#implementing-a-wfstatestore)), in
+  particular atomic `getAndDelete`, the key column collation (rule 5) and
+  keeping `state.meta`.
+- [ ] **Custom strategies:** implement `persistEntry` only if `persist()`
+  honours `expiresAt` (see
+  [`persistEntry` / `consumeEntry`](#expiry-aware-persist-and-consume-persistentry--consumeentry)).
+- [ ] **Subclasses overriding `consume()`/`persist()`:** call `super`, never the
+  entry variants.
+- [ ] **Before enabling `hashHandles`:** read
+  [Hashing handles at rest](#hashing-handles-at-rest-hashhandles). New
+  handles are no longer UUIDs while it is on; check that nothing parses them.
+- [ ] **Set a `defaultTtl`** before moving to 0.4.0: a pre-upgrade raw handle
+  that never expires is stranded once 0.4.0 removes the raw-key fallback.
+- [ ] **Custom handles containing `wfh`/`wfk`:** the fallback never accepts
+  them. About 0.1% of 22-character random base64url handles contain one (hex
+  handles never do); such pre-upgrade handles stop resolving as soon as
+  `hashHandles` is on. Re-issue them, or keep hashing off until they expire.
+- [ ] **Rollback to 0.2.x:** entries written by 0.3.0 still resume if
+  `hashHandles` was off, but 0.2.x does not strip `state.meta.__wfExpiry`, so
+  their state carries it. With `hashHandles` on, 0.2.x cannot find hashed
+  entries at all: a rollback strands every token issued since hashing was
+  enabled.
+
 #### Security note — token replay
 
 A workflow resumption token lets the holder re-execute the workflow from the
@@ -441,7 +693,10 @@ paused step. Any token that stays valid after use is a replay vector for
 whoever can copy it (browser history, logs, proxies, shared devices).
 
 - `HandleStateStrategy.consume()` atomically deletes the handle — truly
-  single-use, race-safe via the store's `getAndDelete`.
+  single-use, race-safe via the store's `getAndDelete` (provided the store
+  follows the contract above).
+- `retrieve()` never invalidates a token on either strategy, so it is safe to
+  inspect a token before deciding whether to consume it.
 - `EncapsulatedStateStrategy.consume()` is a stateless no-op. A copy of the
   token remains valid for the full TTL. This strategy CANNOT enforce
   single-use.

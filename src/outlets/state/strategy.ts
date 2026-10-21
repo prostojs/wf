@@ -1,4 +1,27 @@
 import type { WfState } from '../types';
+import type { WfPersistOptions } from './ttl';
+
+/** A consumed token's state and absolute expiry (see `consumeEntry`). */
+export interface WfConsumedEntry {
+    state: WfState;
+    /**
+     * Absolute expiry as a ms timestamp. `0` = never expires.
+     * `undefined` = UNKNOWN (e.g. an entry written by 0.2.x to a store that
+     * does not return `expiresAt`): callers MUST NOT restore such a state,
+     * because any expiry they pick may extend the token.
+     */
+    expiresAt: number | undefined;
+}
+
+/** A persisted token and the absolute expiry applied (see `persistEntry`). */
+export interface WfPersistedEntry {
+    token: string;
+    /**
+     * Absolute expiry as a ms timestamp. `0` = never expires. `undefined` =
+     * unknown (a built-in strategy whose `persist()` a subclass overrides).
+     */
+    expiresAt: number | undefined;
+}
 
 /**
  * Strategy for persisting workflow state between round-trips.
@@ -35,7 +58,9 @@ export interface WfStateStrategy {
      * Persist workflow state. Returns a token that can be used to retrieve it.
      *
      * @param state     — workflow state (schemaId, context, indexes)
-     * @param options   — optional TTL in milliseconds
+     * @param options   — optional `ttl` (ms) and/or absolute `expiresAt`
+     *                    (ms timestamp, 0 = never); the earlier wins. See
+     *                    `WfPersistOptions`.
      * @param overrides — optional storage hints (see below)
      * @returns opaque token string (encrypted blob or DB handle)
      *
@@ -71,13 +96,18 @@ export interface WfStateStrategy {
      */
     persist(
         state: WfState,
-        options?: { ttl?: number },
+        options?: WfPersistOptions,
         overrides?: { handle?: string },
     ): Promise<string>;
 
     /**
      * Retrieve workflow state from a token WITHOUT invalidating it.
      * Returns null if token is invalid, expired, or tampered with.
+     *
+     * MUST be side-effect free: it never invalidates, extends or changes the
+     * token or its state. Callers rely on this to inspect a token before
+     * deciding whether to `consume()` it (e.g. an allow/block check that must
+     * leave a refused token usable).
      *
      * Prefer `consume()` for callers that advance the workflow — retaining a
      * live token after use enables replay.
@@ -88,8 +118,13 @@ export interface WfStateStrategy {
      * Atomically retrieve AND invalidate the token. Returns null if the token
      * is invalid, expired, or already consumed.
      *
+     * A strategy that supports single use MUST make this atomic: among
+     * concurrent `consume()` calls for the same token, at most one returns
+     * the state. Never implement it as `retrieve()` followed by a separate
+     * delete — any `await` in between lets a second caller win too.
+     *
      * For `HandleStateStrategy` this is truly single-use and race-safe —
-     * backed by the store's atomic `getAndDelete`.
+     * backed by the store's atomic `getAndDelete` (see `WfStateStore`).
      *
      * For `EncapsulatedStateStrategy` this is identical to `retrieve()` — the
      * strategy has no server-side state to delete, so a copy of the token
@@ -97,4 +132,51 @@ export interface WfStateStrategy {
      * is a security requirement.
      */
     consume(token: string): Promise<WfState | null>;
+
+    /**
+     * Optional: `persist()` that also returns the absolute expiry it applied
+     * — see `WfPersistedEntry` (`0` = never expires).
+     *
+     * Implementing it is the signal that the strategy HONOURS
+     * `options.expiresAt` (and the "earlier of `ttl`/`expiresAt` wins" rule).
+     * A strategy without it may read only `ttl` (strategies written against
+     * 0.2.x do), so callers with an absolute expiry should use
+     * `persistEntry()` when present and otherwise fall back to `persist()`
+     * with a `ttl` (as `mintWfStateToken` does).
+     *
+     * MUST NOT bypass a customised `persist()`: the built-ins delegate to an
+     * overriding `persist()` (with `expiresAt` folded into `ttl`) and then
+     * report the expiry as unknown.
+     */
+    persistEntry?(
+        state: WfState,
+        options?: WfPersistOptions,
+        overrides?: { handle?: string },
+    ): Promise<WfPersistedEntry>;
+
+    /**
+     * Optional: `consume()` that also returns the absolute expiry of the
+     * consumed token — see `WfConsumedEntry` (`0` = never expires,
+     * `undefined` = unknown). `null` if the token is invalid, expired or
+     * already consumed.
+     *
+     * MUST have exactly the atomicity of `consume()`, and MUST NOT bypass a
+     * customised `consume()` (the built-ins delegate to an overriding
+     * `consume()` and then report the expiry as unknown).
+     *
+     * To put a consumed state back without extending it, restore only when
+     * the expiry is known, and only through a strategy that honours
+     * `expiresAt` (`persistEntry`):
+     *
+     * @example
+     * const entry = await strategy.consumeEntry(token);
+     * // ...the step fails; restore the token without extending it:
+     * if (entry.expiresAt !== undefined && strategy.persistEntry) {
+     *     await strategy.persistEntry(entry.state, { expiresAt: entry.expiresAt }, { handle: token });
+     * }
+     *
+     * `EncapsulatedStateStrategy` returns the expiry its token carries and,
+     * as with `consume()`, does not invalidate the token.
+     */
+    consumeEntry?(token: string): Promise<WfConsumedEntry | null>;
 }

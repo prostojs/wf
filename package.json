@@ -17,6 +17,11 @@
             "types": "./dist/outlets/index.d.mts",
             "import": "./dist/outlets/index.mjs",
             "require": "./dist/outlets/index.cjs"
+        },
+        "./testing": {
+            "types": "./dist/testing/index.d.mts",
+            "import": "./dist/testing/index.mjs",
+            "require": "./dist/testing/index.cjs"
         }
     },
     "files": [
