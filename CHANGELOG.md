@@ -1,3 +1,12 @@
+# [0.3.0](https://github.com/prostojs/wf/compare/v0.2.1...v0.3.0) (2026-10-21)
+
+
+### Features
+
+* **outlets:** atomic memory store, hashHandles, exact-expiry persistEntry/consumeEntry, headless mint, store contract checker ([e32fd37](https://github.com/prostojs/wf/commit/e32fd375b16b42fff44f69eddbbf1823090927e9))
+
+
+
 ## [0.2.1](https://github.com/prostojs/wf/compare/v0.2.0...v0.2.1) (2026-05-26)
 
 
