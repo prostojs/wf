@@ -1,3 +1,12 @@
+## [0.3.1](https://github.com/prostojs/wf/compare/v0.3.0...v0.3.1) (2026-11-07)
+
+
+### Features
+
+* **outlets:** optional WfStateStrategy.expiresAtFor(options?, now?) and public defaultTtl on built-in strategies ([c34aaa1](https://github.com/prostojs/wf/commit/c34aaa1e587c991b0d64b5a8c84c933cd864c9d4))
+
+
+
 # [0.3.0](https://github.com/prostojs/wf/compare/v0.2.1...v0.3.0) (2026-10-21)
 
 
