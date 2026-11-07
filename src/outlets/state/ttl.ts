@@ -44,6 +44,18 @@ export function resolveExpiresAt(
     return earliest(ttl > 0 ? now + ttl : undefined, absolute);
 }
 
+/**
+ * `resolveExpiresAt` in the stored form: `0` = never expires. Shared by
+ * `persist()` and `expiresAtFor()` so the two cannot disagree.
+ */
+export function appliedExpiry(
+    options: WfPersistOptions | undefined,
+    defaultTtl: number | undefined,
+    now?: number,
+): number {
+    return resolveExpiresAt(options, defaultTtl, now) ?? 0;
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers (not exported from the package).
 // ---------------------------------------------------------------------------

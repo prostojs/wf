@@ -11,7 +11,7 @@ import type {
     WfStateStrategy,
 } from './strategy';
 import type { WfStateStore, WfStateStoreEntry } from './store';
-import { earliest, resolveExpiresAt } from './ttl';
+import { appliedExpiry, earliest, resolveExpiresAt } from './ttl';
 import type { WfPersistOptions } from './ttl';
 
 /** Options for `HandleStateConfig.hashHandles`. */
@@ -190,6 +190,21 @@ export class HandleStateStrategy implements WfStateStrategy {
                 );
             }
         }
+    }
+
+    /** The strategy's default TTL in ms (a value that is not positive and finite means no expiry). */
+    get defaultTtl(): number | undefined {
+        return this.config.defaultTtl;
+    }
+
+    /**
+     * The expiry `persist()` would apply to `options` (`0` = never,
+     * `undefined` = unknown: `persist()` is overridden). See `WfStateStrategy.expiresAtFor`.
+     */
+    expiresAtFor(options?: WfPersistOptions, now?: number): number | undefined {
+        if (isOverridden(this, HandleStateStrategy, 'persist'))
+            return undefined;
+        return appliedExpiry(options, this.config.defaultTtl, now);
     }
 
     async persist(

@@ -10,7 +10,7 @@ import type {
     WfPersistedEntry,
     WfStateStrategy,
 } from './strategy';
-import { resolveExpiresAt } from './ttl';
+import { appliedExpiry } from './ttl';
 import type { WfPersistOptions } from './ttl';
 
 export interface EncapsulatedStateConfig {
@@ -75,6 +75,21 @@ export class EncapsulatedStateStrategy implements WfStateStrategy {
         }
     }
 
+    /** The strategy's default TTL in ms (a value that is not positive and finite means no expiry). */
+    get defaultTtl(): number | undefined {
+        return this.config.defaultTtl;
+    }
+
+    /**
+     * The expiry `persist()` would apply to `options` (`0` = never,
+     * `undefined` = unknown: `persist()` is overridden). See `WfStateStrategy.expiresAtFor`.
+     */
+    expiresAtFor(options?: WfPersistOptions, now?: number): number | undefined {
+        if (isOverridden(this, EncapsulatedStateStrategy, 'persist'))
+            return undefined;
+        return appliedExpiry(options, this.config.defaultTtl, now);
+    }
+
     /**
      * Encrypt workflow state into a self-contained token.
      *
@@ -113,7 +128,7 @@ export class EncapsulatedStateStrategy implements WfStateStrategy {
         state: WfState,
         options: WfPersistOptions | undefined,
     ): WfPersistedEntry {
-        const exp = resolveExpiresAt(options, this.config.defaultTtl) ?? 0;
+        const exp = appliedExpiry(options, this.config.defaultTtl);
         const payload = JSON.stringify({ s: state, e: exp });
 
         const iv = randomBytes(12);

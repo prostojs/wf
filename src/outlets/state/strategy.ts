@@ -134,6 +134,25 @@ export interface WfStateStrategy {
     consume(token: string): Promise<WfState | null>;
 
     /**
+     * Optional: the absolute expiry (ms timestamp) a `persist()` with these
+     * `options` would apply, without persisting. Lets callers show or record
+     * when a paused state will expire. `0` = never expires (nothing bounds
+     * it); `undefined` = UNKNOWN, as on `persistEntry()` / `consumeEntry()`.
+     *
+     * A strategy without this method, or one that returns `undefined`, gives
+     * no answer: callers MUST NOT display or assume an expiry then (and must
+     * not read it as "never expires").
+     *
+     * The built-ins answer with `resolveExpiresAt(options, defaultTtl, now)`
+     * (`undefined` mapped to `0`), exactly what `persist()` uses, and return
+     * `undefined` when a subclass overrides `persist()` (the override may
+     * apply a different expiry). `now` defaults to `Date.now()`.
+     *
+     * @throws TypeError for an invalid `options.expiresAt`
+     */
+    expiresAtFor?(options?: WfPersistOptions, now?: number): number | undefined;
+
+    /**
      * Optional: `persist()` that also returns the absolute expiry it applied
      * — see `WfPersistedEntry` (`0` = never expires).
      *

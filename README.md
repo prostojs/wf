@@ -444,6 +444,24 @@ lifetime. An invalid `expiresAt` (negative, `NaN`, infinite) throws a
 `resolveExpiresAt(options, defaultTtl, now?)` applies these rules for custom
 strategies.
 
+To learn the expiry without persisting, ask the strategy:
+`strategy.expiresAtFor({ ttl?, expiresAt? }, now?)` returns the absolute expiry
+(ms timestamp) that `persist()` with the same options would apply: `0` = never
+expires, `undefined` = unknown (as on `persistEntry` / `consumeEntry`). Both
+built-in strategies implement it with their own `defaultTtl` (also readable as
+`strategy.defaultTtl`), and return `undefined` when a subclass overrides
+`persist()`. `WfStateStrategy.expiresAtFor` is optional: when the method is
+absent or returns `undefined`, treat the expiry as unknown, so don't display or
+assume one (and don't read it as "never"). It throws a `TypeError` for an
+invalid `expiresAt`.
+
+```ts
+const strategy = new HandleStateStrategy({ store, defaultTtl: 3600_000 });
+strategy.expiresAtFor({});                    // Date.now() + 3600_000
+strategy.expiresAtFor({ ttl: 60_000 });       // Date.now() + 60_000
+strategy.expiresAtFor({ ttl: 0 });            // 0 (never expires)
+```
+
 #### Expiry-aware persist and consume (`persistEntry` / `consumeEntry`)
 
 Both built-in strategies have entry variants that also report the absolute

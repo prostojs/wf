@@ -445,6 +445,131 @@ describe('expiry rules', () => {
 
 // ---------------------------------------------------------------------------
 
+describe('expiresAtFor', () => {
+    const DEFAULT = 5_000;
+    // [label, options, defaultTtl, expected absolute expiry (0 = never)]
+    const cases: Array<[string, WfPersistOptions, number | undefined, number]> =
+        [
+            ['ttl only', { ttl: 20_000 }, DEFAULT, NOW + 20_000],
+            [
+                'expiresAt only (default skipped)',
+                { expiresAt: NOW + 99_000 },
+                DEFAULT,
+                NOW + 99_000,
+            ],
+            [
+                'both, ttl earlier',
+                { ttl: 20_000, expiresAt: NOW + 99_000 },
+                DEFAULT,
+                NOW + 20_000,
+            ],
+            [
+                'both, expiresAt earlier',
+                { ttl: 90_000, expiresAt: NOW + 30_000 },
+                DEFAULT,
+                NOW + 30_000,
+            ],
+            ['neither: default TTL', {}, DEFAULT, NOW + DEFAULT],
+            ['neither, no default', {}, undefined, 0],
+            ['neither, default 0', {}, 0, 0],
+            ['neither, negative default', {}, -1, 0],
+            ['neither, Infinity default', {}, Infinity, 0],
+            ['ttl 0 = never, default not applied', { ttl: 0 }, DEFAULT, 0],
+            ['negative ttl = never', { ttl: -5 }, DEFAULT, 0],
+            ['Infinity ttl = never', { ttl: Infinity }, DEFAULT, 0],
+            [
+                'expiresAt 0 = never, default not applied',
+                { expiresAt: 0 },
+                DEFAULT,
+                0,
+            ],
+            [
+                'ttl 0 + expiresAt: the bound wins',
+                { ttl: 0, expiresAt: NOW + 30_000 },
+                DEFAULT,
+                NOW + 30_000,
+            ],
+        ];
+
+    describe.each(strategyMakers)('%s', (_label, make) => {
+        it.each(cases)(
+            '%s equals the expiry persist() records',
+            async (_name, opts, defaultTtl, expected) => {
+                vi.useFakeTimers({ now: NOW });
+                const s = make(defaultTtl);
+                expect(s.expiresAtFor(opts)).toBe(expected);
+                expect(s.expiresAtFor(opts, NOW)).toBe(expected);
+
+                const token = await s.persist(state(), opts);
+                const entry = await s.consumeEntry(token);
+                expect(entry!.expiresAt).toBe(expected);
+            },
+        );
+
+        it('options are optional (default TTL applies)', () => {
+            expect(make(DEFAULT).expiresAtFor(undefined, 1_000)).toBe(
+                1_000 + DEFAULT,
+            );
+            expect(make().expiresAtFor(undefined, 1_000)).toBe(0);
+        });
+
+        it('takes an explicit `now` and does not touch the clock', () => {
+            const s = make(DEFAULT);
+            expect(s.expiresAtFor({}, 1_000)).toBe(1_000 + DEFAULT);
+            expect(s.expiresAtFor({ ttl: 7 }, 1_000)).toBe(1_007);
+        });
+
+        it('throws TypeError for an invalid expiresAt', () => {
+            const s = make(DEFAULT);
+            expect(() => s.expiresAtFor({ expiresAt: -1 })).toThrow(TypeError);
+            expect(() => s.expiresAtFor({ expiresAt: NaN })).toThrow(TypeError);
+        });
+
+        it('exposes defaultTtl', () => {
+            expect(make(DEFAULT).defaultTtl).toBe(DEFAULT);
+            expect(make().defaultTtl).toBeUndefined();
+        });
+    });
+
+    it('is optional on the WfStateStrategy interface', () => {
+        const s: WfStateStrategy = new HandleStateStrategy({
+            store: new WfStateStoreMemory(),
+            defaultTtl: DEFAULT,
+        });
+        expect(s.expiresAtFor?.({}, NOW)).toBe(NOW + DEFAULT);
+    });
+
+    it('is unknown (undefined) when persist() is overridden, like persistEntry', async () => {
+        class CustomHandle extends HandleStateStrategy {
+            override async persist(
+                ...args: Parameters<HandleStateStrategy['persist']>
+            ) {
+                return super.persist(...args);
+            }
+        }
+        class CustomEncapsulated extends EncapsulatedStateStrategy {
+            override async persist(
+                ...args: Parameters<EncapsulatedStateStrategy['persist']>
+            ) {
+                return super.persist(...args);
+            }
+        }
+        const strategies = [
+            new CustomHandle({
+                store: new WfStateStoreMemory(),
+                defaultTtl: DEFAULT,
+            }),
+            new CustomEncapsulated({
+                secret: randomBytes(32),
+                defaultTtl: DEFAULT,
+            }),
+        ];
+        for (const s of strategies) {
+            expect(s.expiresAtFor({}, NOW)).toBeUndefined();
+        }
+    });
+});
+
 describe('consumeEntry / persistEntry', () => {
     describe.each(strategyMakers)(
         '%s: exact-expiry restore',
